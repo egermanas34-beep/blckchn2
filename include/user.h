@@ -9,6 +9,7 @@ class User{
 
     public:
         User();
+        ~User();
         string getName();
         string getPublicKey();
         uint32_t getBalance();

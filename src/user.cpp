@@ -2,11 +2,16 @@
 
 User::User()
 {
-    this->name = "";
-    this->publicKey = "";
-    this->balance = 0;
+   name = "";
+    publicKey = "";
+    balance = 0;
 }
-
+User::~User()
+{
+    name = "";
+    publicKey = "";
+    balance = 0;
+}
 string User::getName()
 {
     return this->name;

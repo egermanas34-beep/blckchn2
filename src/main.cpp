@@ -3,6 +3,7 @@
 #include "hash.h"
 #include "transaction.h"
 #include "block.h"
+#include "blockchain.h"
 
 vector<User> generateUsers(int numUsers);
 vector<Transaction> generateTransactions(const vector<User>& users, int numTransactions);
@@ -39,6 +40,26 @@ int main() {
 
     Block block(prevHash, timestamp, version, difficulty, blockTransactions);
     block.mineBlock();
+
+    Blockchain blockchain(users, transactions, 3);
+
+    cout << "Bloku skaicius: "
+         << blockchain.getChain().size() << endl;
+
+    const Block& genesis = blockchain.getChain().front();
+
+    cout << "Genesis prev_hash: "
+         << genesis.getPrevHash() << endl;
+
+    cout << "Genesis tx_root: "
+         << genesis.getTxRoot() << endl;
+
+    cout << "Genesis hash: "
+         << genesis.calculateBlockHash() << endl;
+
+    cout << "Genesis transakciju skaicius: "
+         << genesis.getTransactions().size() << endl;
+
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

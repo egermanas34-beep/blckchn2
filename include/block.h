@@ -25,4 +25,5 @@ class Block {
 
 
     void calculateTXRoot();
+    string calculateBlockHash() const;
 };

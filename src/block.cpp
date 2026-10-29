@@ -53,13 +53,19 @@ uint32_t Block::getDifficulty() const{
 const vector<Transaction>& Block::getTransactions() const{
     return transactions;
 }
- void Block::calculateTXRoot(){
-        string concatenatedHashes;
+void Block::calculateTXRoot(){
+   string concatenatedHashes;
         
-        for(const auto& transaction : transactions) 
-        {
-            concatenatedHashes += transaction.getTransactionId();
-        }
-        auto hash = gautiHash(concatenatedHashes);
-        tx_root = hashIString(hash);
-    }
+  for(const auto& transaction : transactions) 
+  {
+    concatenatedHashes += transaction.getTransactionId();
+  }
+    auto hash = gautiHash(concatenatedHashes);
+     tx_root = hashIString(hash);
+}
+string Block::calculateBlockHash() const
+{
+    string blockData = prev_hash + "|" + std::to_string(timestamp) + "|" + std::to_string(version) + "|" + tx_root + "|" + std::to_string(nonce) + "|" + std::to_string(difficulty);
+    auto hash = gautiHash(blockData);
+    return hashIString(hash);
+}

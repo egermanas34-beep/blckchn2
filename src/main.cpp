@@ -12,7 +12,7 @@ vector<User> generateUsers(int numUsers) {
         string name = "User" + std::to_string(i);
         auto hash = gautiHash(name);
         string publicKey = hashIString(hash);
-        uint32_t balance = dis(gen);
+        uint64_t balance = dis(gen);
         users.push_back(User(name, publicKey, balance));    
     }
    return users;
@@ -20,9 +20,14 @@ vector<User> generateUsers(int numUsers) {
 
 int main() {
     vector<User> users = generateUsers(10);
-    for (const auto& user : users) {
-        cout << "Name: " << user.getName() << ", Public Key: " << user.getPublicKey() << ", Balance: " << user.getBalance() << endl;
+    for (int i = 0; i < 5; i++)
+    {
+        cout << "Vardas: " << users[i].getName() << "\n";
+        cout << "Public key: " << users[i].getPublicKey() << "\n";
+        cout << "Balansas: " << users[i].getBalance() << "\n\n";
     }
+
+    return 0;
 }
 
 

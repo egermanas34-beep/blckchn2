@@ -6,7 +6,7 @@ User::User()
     publicKey = "";
     balance = 0;
 }
-User::User(string name, string publicKey, uint32_t balance)
+User::User(string name, string publicKey, uint64_t balance)
 {
     this->name = name;
     this->publicKey = publicKey;
@@ -28,7 +28,7 @@ string User::getPublicKey() const
     return this->publicKey;
 }
 
-uint32_t User::getBalance() const
+uint64_t User::getBalance() const
 {
     return this->balance;
 }
@@ -42,7 +42,7 @@ void User::setPublicKey(string publicKey)
     this->publicKey = publicKey;
 }
 
-void User::setBalance(uint32_t balance)
+void User::setBalance(uint64_t balance)
 {
     this->balance = balance;
 }

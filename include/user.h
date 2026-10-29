@@ -9,10 +9,11 @@ class User{
 
     public:
         User();
+        User(string name, string publicKey, uint32_t balance);
         ~User();
-        string getName();
-        string getPublicKey();
-        uint32_t getBalance();
+        string getName() const;
+        string getPublicKey() const;
+        uint32_t getBalance() const;
         void setName(string name);
         void setPublicKey(string publicKey);
         void setBalance(uint32_t balance);

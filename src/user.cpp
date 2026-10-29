@@ -6,23 +6,29 @@ User::User()
     publicKey = "";
     balance = 0;
 }
+User::User(string name, string publicKey, uint32_t balance)
+{
+    this->name = name;
+    this->publicKey = publicKey;
+    this->balance = balance;
+}
 User::~User()
 {
     name = "";
     publicKey = "";
     balance = 0;
 }
-string User::getName()
+string User::getName() const
 {
     return this->name;
 }
 
-string User::getPublicKey()
+string User::getPublicKey() const
 {
     return this->publicKey;
 }
 
-uint32_t User::getBalance()
+uint32_t User::getBalance() const
 {
     return this->balance;
 }

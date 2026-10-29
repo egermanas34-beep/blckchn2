@@ -5,6 +5,7 @@
 #include <fstream>
 #include <array>
 #include <cstdint>
+#include <vector>
 #include <random>
 #include <limits>
 #include <chrono>
@@ -18,3 +19,4 @@ using std::ifstream;
 using std::cout;
 using std::endl;
 using std::ofstream;
+using std::vector;

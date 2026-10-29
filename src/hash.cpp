@@ -98,3 +98,11 @@ uint32_t rotl32(uint32_t x, unsigned r)
 
     return (x << r) | (x >> (32 - r));
 }
+string hashIString(std::array<uint32_t, 8>& hash)
+{
+    std::ostringstream oss;
+    for (const auto& h : hash) {
+        oss << std::hex << std::setw(8) << std::setfill('0') << h;
+    }
+    return oss.str();
+}

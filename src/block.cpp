@@ -93,4 +93,5 @@ void Block::mineBlock()
     std::cout << "Blokas iškaltas! Nonce: " << nonce <<endl;
     std::cout << "Bandymų skaičius: " << attempts << endl;
     std::cout << "Praėjęs laikas: " << elapsed.count() << " sekundžių"<< endl;
+    cout << "Bloko hash: " << calculateBlockHash() << endl;
 }

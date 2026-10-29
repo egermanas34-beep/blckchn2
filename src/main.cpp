@@ -2,19 +2,25 @@
 #include "user.h"
 #include "hash.h"
 #include "transaction.h"
+#include "block.h"
 
 vector<User> generateUsers(int numUsers);
 vector<Transaction> generateTransactions(const vector<User>& users, int numTransactions);
 int main() {
-    vector<User> users = generateUsers(10);
-    for (int i = 0; i < 5; i++)
+    SetConsoleOutputCP(CP_UTF8); // Nustatome konsolės išvesties koduotę į UTF-8
+    SetConsoleCP(CP_UTF8); // Nustatome konsolės įvesties koduotę į UTF-8
+
+
+    vector<User> users = generateUsers(1000);
+   /* for (int i = 0; i < 5; i++)
     {
         cout << "Vardas: " << users[i].getName() << "\n";
         cout << "Public key: " << users[i].getPublicKey() << "\n";
         cout << "Balansas: " << users[i].getBalance() << "\n\n";
     }
+    */
     vector<Transaction> transactions = generateTransactions(users, 10000);
-    for (int i = 0; i < 5; i++)
+    /* for (int i = 0; i < 5; i++)
     {
         cout << "Siuntejas: " << transactions[i].getSender() << "\n";
         cout << "Gavejas: " << transactions[i].getReceiver() << "\n";
@@ -22,7 +28,17 @@ int main() {
         cout << "Sekos numeris: " << transactions[i].getSequence() << "\n";
         cout << "Transakcijos ID: " << transactions[i].getTransactionId() << "\n\n";
     }
+    */
+   vector<Transaction> blockTransactions(transactions.begin(), transactions.begin() + 5);
 
+   //sukursim bloka pirmoms 5 transakcijoms
+    string prevHash(64, '0');
+    uint64_t timestamp = 1761730000;
+    uint32_t version = 1;
+    uint32_t difficulty = 3;
+
+    Block block(prevHash, timestamp, version, difficulty, blockTransactions);
+    block.mineBlock();
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

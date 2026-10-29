@@ -69,3 +69,28 @@ string Block::calculateBlockHash() const
     auto hash = gautiHash(blockData);
     return hashIString(hash);
 }
+void Block::mineBlock()
+{
+    nonce = 0;
+    uint64_t attempts = 0;
+    auto start = std::chrono::high_resolution_clock::now();
+    while(true)
+    {
+        string blockHash = calculateBlockHash();
+        attempts++;
+        if(blockHash.substr(0,difficulty) == string(difficulty, '0'))
+        {
+            break;
+        }
+        nonce++;
+        if(nonce == UINT64_MAX)
+        {
+            throw std::overflow_error("Nonce pasiekė maksimalia reikšmę!");
+        }
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Blokas iškaltas! Nonce: " << nonce <<endl;
+    std::cout << "Bandymų skaičius: " << attempts << endl;
+    std::cout << "Praėjęs laikas: " << elapsed.count() << " sekundžių"<< endl;
+}

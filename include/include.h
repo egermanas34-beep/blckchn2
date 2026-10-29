@@ -6,6 +6,8 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 #include <random>
 #include <limits>
 #include <chrono>
@@ -20,3 +22,5 @@ using std::cout;
 using std::endl;
 using std::ofstream;
 using std::vector;
+using std::unordered_map;
+using std::unordered_set;

@@ -1,7 +1,7 @@
 #pragma once
 #include "include.h"
 #include "transaction.h"
-
+#include "hash.h"
 class Block {
     private:
     string prev_hash;
@@ -24,5 +24,5 @@ class Block {
     const vector<Transaction>& getTransactions() const;
 
 
-    
+    void calculateTXRoot();
 };

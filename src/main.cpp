@@ -13,15 +13,23 @@ int main() {
 
 
     vector<User> users = generateUsers(1000);
-   /* for (int i = 0; i < 5; i++)
+
+    vector<Transaction> transactions = generateTransactions(users, 10000);
+    
+    Blockchain blockchain(users, transactions, 3);
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus"<<endl;
+    int choice;
+    cin >> choice;
+    if (choice == 1) {
+    for (int i = 0; i < 5; i++)
     {
         cout << "Vardas: " << users[i].getName() << "\n";
         cout << "Public key: " << users[i].getPublicKey() << "\n";
         cout << "Balansas: " << users[i].getBalance() << "\n\n";
     }
-    */
-    vector<Transaction> transactions = generateTransactions(users, 10000);
-    /* for (int i = 0; i < 5; i++)
+    }
+    else if (choice == 2) {
+        for (int i = 0; i < 5; i++)
     {
         cout << "Siuntejas: " << transactions[i].getSender() << "\n";
         cout << "Gavejas: " << transactions[i].getReceiver() << "\n";
@@ -29,20 +37,19 @@ int main() {
         cout << "Sekos numeris: " << transactions[i].getSequence() << "\n";
         cout << "Transakcijos ID: " << transactions[i].getTransactionId() << "\n\n";
     }
-    */
-   /*
-   vector<Transaction> blockTransactions(transactions.begin(), transactions.begin() + 5);
+    }
+    else if (choice == 3) {
+        vector<Transaction> blockTransactions(transactions.begin(), transactions.begin() + 5);
+        string prevHash(64, '0');
+        uint64_t timestamp = 1761730000;
+        uint32_t version = 1;
+        uint32_t difficulty = 3;
 
-   //sukursim bloka pirmoms 5 transakcijoms
-    string prevHash(64, '0');
-    uint64_t timestamp = 1761730000;
-    uint32_t version = 1;
-    uint32_t difficulty = 3;
-
-    Block block(prevHash, timestamp, version, difficulty, blockTransactions);
-    block.mineBlock();
-    */
-   /* Blockchain blockchain(users, transactions, 3);
+        Block block(prevHash, timestamp, version, difficulty, blockTransactions);
+        block.mineBlock();
+    }
+    else if (choice == 4) {
+        Blockchain blockchain(users, transactions, 3);
 
     cout << "Bloku skaicius: "
          << blockchain.getChain().size() << endl;
@@ -60,24 +67,40 @@ int main() {
 
     cout << "Genesis transakciju skaicius: "
          << genesis.getTransactions().size() << endl;
-    */
-    Blockchain blockchain(users, transactions, 3);
-
-    cout << "Pradinis bloku skaicius: "
-         << blockchain.getChain().size() << endl;
-
-    if (blockchain.addBlock())
-    {
-        cout << "\nBlokas sekmingai pridetas!" << endl;
     }
-    else
+    else if (choice == 5) 
     {
-        cout << "\nBloko prideti nepavyko!" << endl;
+        int minedBlocks = 0;
+
+        while (blockchain.addBlock())
+        {
+            minedBlocks++;
+        }
+
+        cout << "Iskasta bloku: " << minedBlocks << endl;
+        cout << "Viso bloku: "<< blockchain.getChain().size() << endl;
+        
+    
+        
+        const auto& chain = blockchain.getChain();
+
+        bool validChain = true;
+
+        for (size_t i = 1; i < chain.size(); i++)
+        {
+            if (chain[i].getPrevHash() != chain[i - 1].calculateBlockHash())
+            {
+                validChain = false;
+            cout << "Neteisingas bloku rysys: " << i << endl;
+            break;
+            }
+        }
+
+        if (validChain)
+        {
+            cout << "Visi blokai teisingai susieti!" << endl;
+        }
     }
-
-    cout << "Galutinis bloku skaicius: "
-         << blockchain.getChain().size() << endl;
-
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

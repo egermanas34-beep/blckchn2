@@ -39,3 +39,39 @@ void Blockchain::GenesisBlock() {
 const vector<Block>& Blockchain::getChain() const {
     return chain;
 }
+bool Blockchain::isValidTransaction(const Transaction& transaction, const unordered_map<string, int64_t>& balances) const
+{
+    if(balances.find(transaction.getSender()) == balances.end())
+    {
+        return false;
+    }
+    if(balances.find(transaction.getReceiver()) == balances.end())
+    {
+        return false;
+    }
+    if(transaction.getSender() == transaction.getReceiver())
+    {
+        return false;
+    }
+    if(transaction.getAmount() <= 0)
+    {
+        return false;
+    }
+    if(balances.at(transaction.getSender()) < transaction.getAmount())
+    {
+        return false;
+    }
+    string data = transaction.getSender() + "|" + transaction.getReceiver() + "|" + std::to_string(transaction.getAmount()) + "|" + std::to_string(transaction.getSequence());
+    auto hash = gautiHash(data);
+    string calculatedTransactionId = hashIString(hash);
+    if(calculatedTransactionId != transaction.getTransactionId())
+    {
+        return false;
+    }
+    
+    if(confirmedTransactionIds.find(transaction.getTransactionId()) != confirmedTransactionIds.end())
+    {
+        return false;
+    }
+    return true;
+}

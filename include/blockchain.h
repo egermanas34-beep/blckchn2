@@ -15,7 +15,7 @@ class Blockchain {
     unordered_set<string> confirmedTransactionIds;
 
     void GenesisBlock();
-    
+    bool isValidTransaction(const Transaction& transaction, const unordered_map<string, int64_t>& balances) const;
     public:
     Blockchain();
     Blockchain(const vector<User>& users,const vector<Transaction>& transactions, uint32_t difficulty);

@@ -14,6 +14,7 @@
 #include <chrono>
 #include <sstream>
 #include <unordered_map>
+#include <ctime>
 #include <windows.h>
 using std::string;
 using std::cin;

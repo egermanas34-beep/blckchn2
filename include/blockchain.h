@@ -16,10 +16,13 @@ class Blockchain {
 
     void GenesisBlock();
     bool isValidTransaction(const Transaction& transaction, const unordered_map<string, int64_t>& balances) const;
+    bool isValidBlock(const Block& block, unordered_map<string, int64_t>& updatedBalances) const;
+
     public:
     Blockchain();
     Blockchain(const vector<User>& users,const vector<Transaction>& transactions, uint32_t difficulty);
     ~Blockchain();
     const vector<Block>& getChain() const;
     vector<Transaction> selectTransactions() const;
+    bool addBlock();
 };

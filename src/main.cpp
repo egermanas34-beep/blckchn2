@@ -1,123 +1,309 @@
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <fstream>
-#include <array>
-#include <cstdint>
-#include <random>
-#include <limits>
-#include <chrono>
-#include <sstream>
-#include <unordered_map>
-#include <windows.h>
-using std::string;
-using std::cin;
-using std::getline;
-using std::ifstream;
-using std::cout;
-using std::endl;
-using std::ofstream;
+#include "include.h"
+#include "user.h"
+#include "hash.h"
+#include "transaction.h"
+#include "block.h"
+#include "blockchain.h"
+
+vector<User> generateUsers(int numUsers);
+vector<Transaction> generateTransactions(const vector<User>& users, int numTransactions);
 int main() {
+    SetConsoleOutputCP(CP_UTF8); // Nustatome konsolės išvesties koduotę į UTF-8
+    SetConsoleCP(CP_UTF8); // Nustatome konsolės įvesties koduotę į UTF-8
+
+
+    vector<User> users = generateUsers(1000);
+
+    vector<Transaction> transactions = generateTransactions(users, 10000);
     
-}
+    Blockchain blockchain(users, transactions, 3);
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus "<<endl;
+    int choice;
+    cin >> choice;
+    if (choice == 1) {
+    for (int i = 0; i < 5; i++)
+    {
+        cout << "Vardas: " << users[i].getName() << "\n";
+        cout << "Public key: " << users[i].getPublicKey() << "\n";
+        cout << "Balansas: " << users[i].getBalance() << "\n\n";
+    }
+    }
+    else if (choice == 2) {
+        for (int i = 0; i < 5; i++)
+    {
+        cout << "Siuntejas: " << transactions[i].getSender() << "\n";
+        cout << "Gavejas: " << transactions[i].getReceiver() << "\n";
+        cout << "Suma: " << transactions[i].getAmount() << "\n";
+        cout << "Sekos numeris: " << transactions[i].getSequence() << "\n";
+        cout << "Transakcijos ID: " << transactions[i].getTransactionId() << "\n\n";
+    }
+    }
+    else if (choice == 3) {
+        vector<Transaction> blockTransactions(transactions.begin(), transactions.begin() + 5);
+        string prevHash(64, '0');
+        uint64_t timestamp = 1761730000;
+        uint32_t version = 1;
+        uint32_t difficulty = 3;
+
+        Block block(prevHash, timestamp, version, difficulty, blockTransactions);
+        block.mineBlock();
+    }
+    else if (choice == 4) {
+        Blockchain blockchain(users, transactions, 3);
+
+    cout << "Bloku skaicius: "
+         << blockchain.getChain().size() << endl;
+
+    const Block& genesis = blockchain.getChain().front();
+
+    cout << "Genesis prev_hash: "
+         << genesis.getPrevHash() << endl;
+
+    cout << "Genesis tx_root: "
+         << genesis.getTxRoot() << endl;
+
+    cout << "Genesis hash: "
+         << genesis.calculateBlockHash() << endl;
+
+    cout << "Genesis transakciju skaicius: "
+         << genesis.getTransactions().size() << endl;
+    }
+    else if (choice == 5) 
+    {
+        auto start = std::chrono::steady_clock::now();
+        int minedBlocks = 0;
+
+        while (blockchain.addBlock())
+        {
+            minedBlocks++;
+        }
+
+        cout << "Iskasta bloku: " << minedBlocks << endl;
+        cout << "Viso bloku: "<< blockchain.getChain().size() << endl;
+        
+    
+        
+        const auto& chain = blockchain.getChain();
+
+        bool validChain = true;
+
+        for (size_t i = 1; i < chain.size(); i++)
+        {
+            if (chain[i].getPrevHash() != chain[i - 1].calculateBlockHash())
+            {
+                validChain = false;
+            cout << "Neteisingas bloku rysys: " << i << endl;
+            break;
+            }
+        }
+
+        if (validChain)
+        {
+            cout << "Visi blokai teisingai susieti!" << endl;
+        }
+        auto end = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+
+    cout << "\n========== GALUTINE SUVESTINE ==========\n";
+
+    cout << "Vartotoju skaicius: " << users.size() << endl;
+    cout << "Sugeneruotu transakciju: " << transactions.size() << endl;
+
+    cout << "Iskastu bloku: " << minedBlocks << endl;
+    cout << "Viso bloku: " << blockchain.getChain().size() << endl;
+
+    cout << "Patvirtintu transakciju: "
+         << blockchain.getConfirmedTransactionCount() << endl;
+
+    cout << "Atmestu transakciju: "
+         << blockchain.getRejectedTransactionCount() << endl;
+
+    cout << "Likusiu transakciju: "
+         << blockchain.getRemainingTransactionCount() << endl;
+
+    cout << "Pradine lesu suma: "
+         << blockchain.getInitialBalanceSum() << endl;
+
+    cout << "Galutine lesu suma: "
+         << blockchain.getFinalBalanceSum() << endl;
+
+    cout << "Balansu patikra: "
+         << (blockchain.verifyBalances() ? "SEKMINGA" : "NESEKMINGA")
+         << endl;
+
+    cout << "Bendras laikas: "
+         << duration.count() << " s" << endl;
+    }
+    else if (choice == 6) 
+    {
+            vector<User> testUsers = {
+            User("UserA", "a1", 100),
+            User("UserB", "b2", 100),
+            User("UserC", "c3", 100)
+            };
+
+            vector<Transaction> testTransactions = {
+            Transaction("a1", "b2", 70, 1),
+            Transaction("a1", "c3", 60, 2)
+            };
+
+        Blockchain testBlockchain(testUsers, testTransactions, 3);
+
+        while (testBlockchain.addBlock())
+        {
+        }
+        cout << "Patvirtintu transakciju: "<< testBlockchain.getConfirmedTransactionCount() << endl;
+        cout << "Likusiu transakciju: "<< testBlockchain.getRemainingTransactionCount() << endl;
+        cout << "Balansu patikra: "<< (testBlockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
+    }
+    else if(choice == 7)
+    {
+            vector<User> users = {
+            User("UserA", "a1", 1000000),
+            User("UserB", "b2", 1000000)
+            };
+
+        vector<Transaction> transactions;
+
+        for (int i = 0; i < 205; i++)
+        {
+            if (i % 2 == 0)
+            {
+               transactions.emplace_back("a1", "b2", 1, i + 1);
+            }
+            else
+            {
+             transactions.emplace_back("b2", "a1", 1, i + 1);
+            }
+        }
+
+        Blockchain blockchain(users, transactions, 3);
+
+        while (blockchain.addBlock())
+        {
+        }
+
+        const auto& chain = blockchain.getChain();
+
+        for (size_t i = 0; i < chain.size(); i++)
+        {
+            cout << "Blokas " << i<< ": " << chain[i].getTransactions().size()<< " transakciju" << endl;
+        }
+
+        cout << "Patvirtintu transakciju: "<< blockchain.getConfirmedTransactionCount() << endl;
+        cout << "Likusiu transakciju: "<< blockchain.getRemainingTransactionCount() << endl;
+        cout << "Balansu patikra: "<< (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
 
 
-std::array<uint32_t, 8> gautiHash(string t)
-{
-    std::array<uint32_t, 8> hash = {
-        0x243F6A88u,
-        0x85A308D3u,
-        0x13198A2Eu,
-        0x03707344u,
-        0xA4093822u,
-        0x299F31D0u,
-        0x082EFA98u,
-        0xEC4E6C89u
+    }
+    else if(choice == 8)
+    {
+        vector<User> users = {
+                User("UserA", "a1", 1000),
+                User("UserB", "b2", 1000)
+            };
+
+            Transaction tx("a1", "b2", 50, 1);
+
+            vector<Transaction> transactions = {
+                tx,
+                tx
+            };
+
+            Blockchain blockchain(users, transactions, 3);
+
+            while (blockchain.addBlock())
+            {
+            }
+
+           cout << "Patvirtintu: "<< blockchain.getConfirmedTransactionCount() << endl;
+            cout << "Atmestu: "<< blockchain.getRejectedTransactionCount() << endl;
+            cout << "Likusiu: "<< blockchain.getRemainingTransactionCount() << endl;
+
+    }
+    else if(choice == 9)
+    {
+vector<User> users = {
+        User("UserA", "a1", 1000),
+        User("UserB", "b2", 1000)
     };
 
-    for (size_t i = 0; i < t.size(); i++)
+    vector<Transaction> transactions = {
+        Transaction("a1", "b2", 100, 1),
+        Transaction("a1", "unknown", 50, 2),
+        Transaction("a1", "b2", 0, 3),
+        Transaction("a1", "b2", -100, 4)
+    };
+
+    Blockchain blockchain(users, transactions, 3);
+
+    while (blockchain.addBlock())
     {
-        uint32_t baitas =
-            static_cast<unsigned char>(t[i]);
-
-        uint32_t indeksas =
-            static_cast<uint32_t>(i) ^
-            static_cast<uint32_t>(
-                static_cast<uint64_t>(i) >> 32
-            );
-
-        size_t pozicija = i % 8;
-
-        uint32_t maisymas =
-            baitas +
-            0x9E3779B9u * (indeksas + 1u);
-
-        hash[pozicija] ^=
-            maisymas +
-            rotl32(hash[(pozicija + 7) % 8], 5);
-
-        hash[pozicija] =
-            rotl32(
-                hash[pozicija],
-                7u + static_cast<unsigned>(i % 19)
-            );
-
-        hash[(pozicija + 1) % 8] +=
-            hash[pozicija] ^ 0x85EBCA6Bu;
-
-        hash[(pozicija + 3) % 8] ^=
-            rotl32(hash[pozicija] + maisymas, 11);
-
-        hash[(pozicija + 5) % 8] +=
-            rotl32(
-                hash[pozicija] ^
-                hash[(pozicija + 1) % 8],
-                17
-            );
     }
 
-    uint64_t ilgis = t.size();
+    cout << "Patvirtintu: "
+         << blockchain.getConfirmedTransactionCount() << endl;
 
-    hash[0] ^= static_cast<uint32_t>(ilgis);
-    hash[1] ^= static_cast<uint32_t>(ilgis >> 32);
+    cout << "Atmestu: "
+         << blockchain.getRejectedTransactionCount() << endl;
 
-    // Galutinis maišymas
-    for (unsigned raundas = 0; raundas < 8; raundas++)
-    {
-        auto ankstesnis = hash;
+    cout << "Likusiu: "
+         << blockchain.getRemainingTransactionCount() << endl;
 
-        for (unsigned j = 0; j < 8; j++)
-        {
-            uint32_t a = ankstesnis[j];
-            uint32_t b = ankstesnis[(j + 1) % 8];
-            uint32_t c = ankstesnis[(j + 3) % 8];
-            uint32_t d = ankstesnis[(j + 6) % 8];
-
-            uint32_t x =
-                a +
-                (b ^
-                (0x9E3779B9u +
-                 raundas * 0x7F4A7C15u +
-                 j));
-
-            x = rotl32(
-                x,
-                5u + ((j * 3u + raundas) % 23u)
-            );
-
-            hash[j] =
-                (x ^ c) + rotl32(d, 13);
-        }
-    }
-
-    return hash;
-}
-uint32_t rotl32(uint32_t x, unsigned r)
+    cout << "Balansu patikra: "
+         << (blockchain.verifyBalances() ? "SEKMINGA" : "NESEKMINGA")
+         << endl;
+    for (const auto& [id, reason] :
+     blockchain.getRejectedTransactions())
 {
-    r &= 31u;
-
-    if (r == 0)
-        return x;
-
-    return (x << r) | (x >> (32 - r));
+    cout << "Transakcija: " << id << endl;
+    cout << "Priezastis: " << reason << endl;
 }
+
+    }
+
+    return 0;
+}
+vector<User> generateUsers(int numUsers) {
+   vector<User> users;
+   users.reserve(numUsers);
+   std::mt19937 gen(42);
+   std::uniform_int_distribution<> dis(100, 1000000);
+    for( int i = 0; i < numUsers; i++)
+    {
+        string name = "User" + std::to_string(i+1);
+        auto hash = gautiHash(name);
+        string publicKey = hashIString(hash);
+        uint64_t balance = dis(gen);
+        users.push_back(User(name, publicKey, balance));    
+    }
+   return users;
+}
+vector<Transaction> generateTransactions(const vector<User>& users, int numTransactions) {
+    if (numTransactions < 0 || users.size() < 2)
+{
+    throw std::invalid_argument("Neteisingi generavimo parametrai!");
+}
+    vector<Transaction> transactions;
+    transactions.reserve(numTransactions);
+    std::mt19937 gen(42);
+    std::uniform_int_distribution<> dis(0, users.size() - 1);
+    std::uniform_int_distribution<> amountDis(1, 1000);
+    for( int i = 0; i < numTransactions; i++)
+    {
+        int senderIndex = dis(gen);
+        int receiverIndex = dis(gen);
+        while(receiverIndex == senderIndex)
+        {receiverIndex = dis(gen);}
+        string sender = users[senderIndex].getPublicKey();
+        string receiver = users[receiverIndex].getPublicKey();
+        int64_t amount = amountDis(gen);
+        uint64_t sequence = i + 1;
+
+        transactions.push_back(Transaction(sender, receiver, amount, sequence));
+    }
+
+    return transactions;
+}
+

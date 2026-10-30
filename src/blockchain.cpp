@@ -112,18 +112,38 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
  }
  bool Blockchain::addBlock()
  {
-    vector<Transaction> selectedTransaction = selectTransactions();
-    if(selectedTransaction.empty())
+    vector<Transaction> selectedTransactions = selectTransactions();
+    if(selectedTransactions.empty())
     {
         return false;
     }
     string prevHash = chain.back().calculateBlockHash();
     uint64_t timestamp = static_cast<uint64_t>(std::time(nullptr));
     uint32_t version = 1;
-    Block newBlock(prevHash, timestamp, version, difficulty, selectedTransaction);
+    Block newBlock(prevHash, timestamp, version, difficulty, selectedTransactions);
     newBlock.mineBlock();
-
-
+    unordered_map<string, int64_t> updatedBalances;
+    if(!isValidBlock(newBlock, updatedBalances))
+    {
+        return false;
+    }
+    chain.push_back(newBlock);
+    balances = std::move(updatedBalances);
+    for(const auto& transaction : selectedTransactions)
+    {
+        confirmedTransactionIds.insert(transaction.getTransactionId());
+    }
+    vector<Transaction> remainingTransactions;
+    remainingTransactions.reserve(transactionPool.size());
+    for(const auto& transaction : transactionPool)
+    {
+        if(confirmedTransactionIds.find(transaction.getTransactionId()) == confirmedTransactionIds.end())
+        {
+            remainingTransactions.push_back(transaction);
+        }
+    }
+    transactionPool = std::move(remainingTransactions);
+    return true;
  }
  bool Blockchain::isValidBlock(const Block& block, unordered_map<string, int64_t>& updatedBalances) const
  {

@@ -331,3 +331,26 @@ size_t Blockchain::getRejectedTransactionCount() const
 {
     return rejectedTransactions.size();
 }
+const vector<std::pair<string, string>>& Blockchain::getRejectedTransactions() const
+{
+    return rejectedTransactions;
+}
+int64_t Blockchain::getInitialBalanceSum() const
+{
+    int64_t sum = 0;
+
+    for (const auto& [key, balance] : initialBalances)
+        sum += balance;
+
+    return sum;
+}
+
+int64_t Blockchain::getFinalBalanceSum() const
+{
+    int64_t sum = 0;
+
+    for (const auto& [key, balance] : balances)
+        sum += balance;
+
+    return sum;
+}

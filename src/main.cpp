@@ -17,7 +17,7 @@ int main() {
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas"<<endl;
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus "<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -70,6 +70,7 @@ int main() {
     }
     else if (choice == 5) 
     {
+        auto start = std::chrono::steady_clock::now();
         int minedBlocks = 0;
 
         while (blockchain.addBlock())
@@ -100,12 +101,39 @@ int main() {
         {
             cout << "Visi blokai teisingai susieti!" << endl;
         }
-        cout << "\n--- GALUTINE SUVESTINE ---\n";
-        cout << "Iskasta bloku: " << minedBlocks << endl;
-        cout << "Viso bloku: "<< blockchain.getChain().size() << endl;
-        cout << "Patvirtintu transakciju: "<< blockchain.getConfirmedTransactionCount() << endl;
-        cout << "Likusiu transakciju: "<< blockchain.getRemainingTransactionCount() << endl;
-        cout << "Balansu patikra: "<< (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
+        auto end = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+
+    cout << "\n========== GALUTINE SUVESTINE ==========\n";
+
+    cout << "Vartotoju skaicius: " << users.size() << endl;
+    cout << "Sugeneruotu transakciju: " << transactions.size() << endl;
+
+    cout << "Iskastu bloku: " << minedBlocks << endl;
+    cout << "Viso bloku: " << blockchain.getChain().size() << endl;
+
+    cout << "Patvirtintu transakciju: "
+         << blockchain.getConfirmedTransactionCount() << endl;
+
+    cout << "Atmestu transakciju: "
+         << blockchain.getRejectedTransactionCount() << endl;
+
+    cout << "Likusiu transakciju: "
+         << blockchain.getRemainingTransactionCount() << endl;
+
+    cout << "Pradine lesu suma: "
+         << blockchain.getInitialBalanceSum() << endl;
+
+    cout << "Galutine lesu suma: "
+         << blockchain.getFinalBalanceSum() << endl;
+
+    cout << "Balansu patikra: "
+         << (blockchain.verifyBalances() ? "SEKMINGA" : "NESEKMINGA")
+         << endl;
+
+    cout << "Bendras laikas: "
+         << duration.count() << " s" << endl;
     }
     else if (choice == 6) 
     {
@@ -189,17 +217,52 @@ int main() {
             {
             }
 
-            cout << "Patvirtintu transakciju: "
-                << blockchain.getConfirmedTransactionCount() << endl;
-
-            cout << "Likusiu transakciju: "
-                << blockchain.getRemainingTransactionCount() << endl;
-
-            cout << "Balansu patikra: "
-                << (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")
-                << endl;
+           cout << "Patvirtintu: "<< blockchain.getConfirmedTransactionCount() << endl;
+            cout << "Atmestu: "<< blockchain.getRejectedTransactionCount() << endl;
+            cout << "Likusiu: "<< blockchain.getRemainingTransactionCount() << endl;
 
     }
+    else if(choice == 9)
+    {
+vector<User> users = {
+        User("UserA", "a1", 1000),
+        User("UserB", "b2", 1000)
+    };
+
+    vector<Transaction> transactions = {
+        Transaction("a1", "b2", 100, 1),
+        Transaction("a1", "unknown", 50, 2),
+        Transaction("a1", "b2", 0, 3),
+        Transaction("a1", "b2", -100, 4)
+    };
+
+    Blockchain blockchain(users, transactions, 3);
+
+    while (blockchain.addBlock())
+    {
+    }
+
+    cout << "Patvirtintu: "
+         << blockchain.getConfirmedTransactionCount() << endl;
+
+    cout << "Atmestu: "
+         << blockchain.getRejectedTransactionCount() << endl;
+
+    cout << "Likusiu: "
+         << blockchain.getRemainingTransactionCount() << endl;
+
+    cout << "Balansu patikra: "
+         << (blockchain.verifyBalances() ? "SEKMINGA" : "NESEKMINGA")
+         << endl;
+    for (const auto& [id, reason] :
+     blockchain.getRejectedTransactions())
+{
+    cout << "Transakcija: " << id << endl;
+    cout << "Priezastis: " << reason << endl;
+}
+
+    }
+
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

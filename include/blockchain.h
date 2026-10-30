@@ -31,4 +31,7 @@ class Blockchain {
     size_t getConfirmedTransactionCount() const;
     size_t getRemainingTransactionCount() const;
     size_t getRejectedTransactionCount() const;
+    const vector<std::pair<string, string>>& getRejectedTransactions() const;
+    int64_t getInitialBalanceSum() const;
+    int64_t getFinalBalanceSum() const;
 };

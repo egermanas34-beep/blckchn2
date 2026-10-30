@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <random>
+#include <algorithm>
 #include <limits>
 #include <chrono>
 #include <sstream>

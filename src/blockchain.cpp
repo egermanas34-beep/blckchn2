@@ -75,3 +75,28 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
     }
     return true;
 }
+ vector<Transaction> Blockchain::selectTransactions() const 
+ {
+    vector<Transaction> selectedTransactions;
+    selectedTransactions.reserve(100);
+    auto tempBalances = balances;
+    std::mt19937 gen(42);
+    vector<Transaction> shuffledTransactions = transactionPool;
+    std::shuffle(shuffledTransactions.begin(), shuffledTransactions.end(), gen);
+    for(const auto& transaction : shuffledTransactions)
+    {
+        if(selectedTransactions.size() >= 100)
+        {
+            break;
+        }
+        if(isValidTransaction(transaction, tempBalances))
+        {
+            selectedTransactions.push_back(transaction);
+            tempBalances[transaction.getSender()] -= transaction.getAmount();
+            tempBalances[transaction.getReceiver()] += transaction.getAmount();
+        }
+    }
+
+
+    return selectedTransactions;
+ }

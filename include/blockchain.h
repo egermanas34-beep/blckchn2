@@ -13,7 +13,9 @@ class Blockchain {
     vector<Transaction> transactionPool;
     uint32_t difficulty;
     unordered_set<string> confirmedTransactionIds;
+    vector<std::pair<string, string>> rejectedTransactions;
 
+    void initializeTransactionPool(const vector<Transaction>& transactions);
     void GenesisBlock();
     bool isValidTransaction(const Transaction& transaction, const unordered_map<string, int64_t>& balances) const;
     bool isValidBlock(const Block& block, unordered_map<string, int64_t>& updatedBalances) const;
@@ -28,4 +30,5 @@ class Blockchain {
     bool verifyBalances() const;
     size_t getConfirmedTransactionCount() const;
     size_t getRemainingTransactionCount() const;
+    size_t getRejectedTransactionCount() const;
 };

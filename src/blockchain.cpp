@@ -11,12 +11,13 @@ Blockchain::Blockchain() {
 }
 Blockchain::Blockchain(const vector<User>& users,const vector<Transaction>& transactions, uint32_t difficulty) {
    this->difficulty = difficulty;
-   transactionPool = transactions;
+   
    for(const auto& user : users)
    {
     balances[user.getPublicKey()] = user.getBalance();
     initialBalances[user.getPublicKey()] = user.getBalance();
 }
+    initializeTransactionPool(transactions);
     GenesisBlock();
 
 }
@@ -245,4 +246,88 @@ size_t Blockchain::getConfirmedTransactionCount() const
 size_t Blockchain::getRemainingTransactionCount() const
 {
     return transactionPool.size();
+}
+void Blockchain::initializeTransactionPool(const vector<Transaction>& transactions)
+{
+    std::unordered_set<string> poolIDs;
+    for( const auto& transaction : transactions)
+    {   
+        // 1. Patikrinti, ar siuntejas egzistuoja
+        if (balances.find(transaction.getSender()) == balances.end())
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Nezinomas siuntejas"
+            );
+            continue;
+        }
+
+        // 2. Patikrinti, ar gavejas egzistuoja
+        if (balances.find(transaction.getReceiver()) == balances.end())
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Nezinomas gavejas"
+            );
+            continue;
+        }
+
+        // 3. Patikrinti, ar dalyviai skirtingi
+        if (transaction.getSender() == transaction.getReceiver())
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Siuntejas ir gavejas yra tas pats"
+            );
+            continue;
+        }
+
+        // 4. Patikrinti transakcijos suma
+        if (transaction.getAmount() <= 0)
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Neteisinga transakcijos suma"
+            );
+            continue;
+        }
+
+        // 5. Perskaiciuoti transakcijos ID
+        string data = transaction.getSender() + "|" +
+                      transaction.getReceiver() + "|" +
+                      std::to_string(transaction.getAmount()) + "|" +
+                      std::to_string(transaction.getSequence());
+
+        auto hash = gautiHash(data);
+        string calculatedTransactionId = hashIString(hash);
+
+        if (calculatedTransactionId != transaction.getTransactionId())
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Neteisingas transakcijos ID"
+            );
+            continue;
+        }
+
+        // 6. Patikrinti ID pasikartojima
+        if (poolIDs.find(transaction.getTransactionId()) != poolIDs.end() ||
+            confirmedTransactionIds.find(transaction.getTransactionId()) !=
+                confirmedTransactionIds.end())
+        {
+            rejectedTransactions.emplace_back(
+                transaction.getTransactionId(),
+                "Dubliuotas ID"
+            );
+            continue;
+        }
+
+        // 7. Prideti tinkama transakcija i fonda
+        transactionPool.push_back(transaction);
+        poolIDs.insert(transaction.getTransactionId());
+    }
+}
+size_t Blockchain::getRejectedTransactionCount() const
+{
+    return rejectedTransactions.size();
 }

@@ -25,4 +25,7 @@ class Blockchain {
     const vector<Block>& getChain() const;
     vector<Transaction> selectTransactions() const;
     bool addBlock();
+    bool verifyBalances() const;
+    size_t getConfirmedTransactionCount() const;
+    size_t getRemainingTransactionCount() const;
 };

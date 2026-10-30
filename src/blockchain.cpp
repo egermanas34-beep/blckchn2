@@ -208,3 +208,41 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
     updatedBalances = std::move(tempBalances);
     return true;
  }
+bool Blockchain::verifyBalances() const
+{
+    uint64_t InitialBalanceSum = 0;
+    uint64_t FinalBalanceSum = 0;
+    if(initialBalances.size() != balances.size())
+    {
+        return false;
+    }
+    for(const auto& [publicKey, balance] : initialBalances)
+    {
+        if(balance < 0)
+        {
+            return false;
+        }
+        InitialBalanceSum += balance;
+    }
+    for(const auto& [publicKey, balance] : balances)
+    {
+        if(balance < 0)
+        {
+            return false;
+        }
+        if(initialBalances.find(publicKey) == initialBalances.end())
+        {
+            return false;
+        }
+        FinalBalanceSum += balance;
+    }
+    return InitialBalanceSum == FinalBalanceSum;
+}
+size_t Blockchain::getConfirmedTransactionCount() const
+{
+    return confirmedTransactionIds.size();
+}
+size_t Blockchain::getRemainingTransactionCount() const
+{
+    return transactionPool.size();
+}

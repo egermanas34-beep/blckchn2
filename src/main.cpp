@@ -17,7 +17,7 @@ int main() {
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus"<<endl;
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas"<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -100,6 +100,105 @@ int main() {
         {
             cout << "Visi blokai teisingai susieti!" << endl;
         }
+        cout << "\n--- GALUTINE SUVESTINE ---\n";
+        cout << "Iskasta bloku: " << minedBlocks << endl;
+        cout << "Viso bloku: "<< blockchain.getChain().size() << endl;
+        cout << "Patvirtintu transakciju: "<< blockchain.getConfirmedTransactionCount() << endl;
+        cout << "Likusiu transakciju: "<< blockchain.getRemainingTransactionCount() << endl;
+        cout << "Balansu patikra: "<< (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
+    }
+    else if (choice == 6) 
+    {
+            vector<User> testUsers = {
+            User("UserA", "a1", 100),
+            User("UserB", "b2", 100),
+            User("UserC", "c3", 100)
+            };
+
+            vector<Transaction> testTransactions = {
+            Transaction("a1", "b2", 70, 1),
+            Transaction("a1", "c3", 60, 2)
+            };
+
+        Blockchain testBlockchain(testUsers, testTransactions, 3);
+
+        while (testBlockchain.addBlock())
+        {
+        }
+        cout << "Patvirtintu transakciju: "<< testBlockchain.getConfirmedTransactionCount() << endl;
+        cout << "Likusiu transakciju: "<< testBlockchain.getRemainingTransactionCount() << endl;
+        cout << "Balansu patikra: "<< (testBlockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
+    }
+    else if(choice == 7)
+    {
+            vector<User> users = {
+            User("UserA", "a1", 1000000),
+            User("UserB", "b2", 1000000)
+            };
+
+        vector<Transaction> transactions;
+
+        for (int i = 0; i < 205; i++)
+        {
+            if (i % 2 == 0)
+            {
+               transactions.emplace_back("a1", "b2", 1, i + 1);
+            }
+            else
+            {
+             transactions.emplace_back("b2", "a1", 1, i + 1);
+            }
+        }
+
+        Blockchain blockchain(users, transactions, 3);
+
+        while (blockchain.addBlock())
+        {
+        }
+
+        const auto& chain = blockchain.getChain();
+
+        for (size_t i = 0; i < chain.size(); i++)
+        {
+            cout << "Blokas " << i<< ": " << chain[i].getTransactions().size()<< " transakciju" << endl;
+        }
+
+        cout << "Patvirtintu transakciju: "<< blockchain.getConfirmedTransactionCount() << endl;
+        cout << "Likusiu transakciju: "<< blockchain.getRemainingTransactionCount() << endl;
+        cout << "Balansu patikra: "<< (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")<< endl;
+
+
+    }
+    else if(choice == 8)
+    {
+        vector<User> users = {
+                User("UserA", "a1", 1000),
+                User("UserB", "b2", 1000)
+            };
+
+            Transaction tx("a1", "b2", 50, 1);
+
+            vector<Transaction> transactions = {
+                tx,
+                tx
+            };
+
+            Blockchain blockchain(users, transactions, 3);
+
+            while (blockchain.addBlock())
+            {
+            }
+
+            cout << "Patvirtintu transakciju: "
+                << blockchain.getConfirmedTransactionCount() << endl;
+
+            cout << "Likusiu transakciju: "
+                << blockchain.getRemainingTransactionCount() << endl;
+
+            cout << "Balansu patikra: "
+                << (blockchain.verifyBalances() ? "SEKMINGA" : "NESĖKMINGA")
+                << endl;
+
     }
     return 0;
 }

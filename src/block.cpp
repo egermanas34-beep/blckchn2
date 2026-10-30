@@ -16,10 +16,10 @@ Block::Block(string prev_hash, uint64_t timestamp, uint32_t version, uint32_t di
     this->timestamp = timestamp;
     this->version = version;
     this->tx_root = "";
-    calculateTXRoot();
     this->nonce = 0;
     this->difficulty = difficulty;
     this->transactions = transactions;
+    calculateTXRoot();
 }
 
 Block::~Block(){

@@ -30,6 +30,7 @@ int main() {
         cout << "Transakcijos ID: " << transactions[i].getTransactionId() << "\n\n";
     }
     */
+   /*
    vector<Transaction> blockTransactions(transactions.begin(), transactions.begin() + 5);
 
    //sukursim bloka pirmoms 5 transakcijoms
@@ -40,8 +41,8 @@ int main() {
 
     Block block(prevHash, timestamp, version, difficulty, blockTransactions);
     block.mineBlock();
-
-    Blockchain blockchain(users, transactions, 3);
+    */
+   /* Blockchain blockchain(users, transactions, 3);
 
     cout << "Bloku skaicius: "
          << blockchain.getChain().size() << endl;
@@ -59,6 +60,23 @@ int main() {
 
     cout << "Genesis transakciju skaicius: "
          << genesis.getTransactions().size() << endl;
+    */
+    Blockchain blockchain(users, transactions, 3);
+
+    cout << "Pradinis bloku skaicius: "
+         << blockchain.getChain().size() << endl;
+
+    if (blockchain.addBlock())
+    {
+        cout << "\nBlokas sekmingai pridetas!" << endl;
+    }
+    else
+    {
+        cout << "\nBloko prideti nepavyko!" << endl;
+    }
+
+    cout << "Galutinis bloku skaicius: "
+         << blockchain.getChain().size() << endl;
 
     return 0;
 }

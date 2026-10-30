@@ -149,18 +149,22 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
  {
     if(block.getPrevHash() != chain.back().calculateBlockHash())
     {
+        cout << "Klaida: neteisingas prev_hash!" << endl;
         return false;
     }
     if(block.getVersion() != 1)
     {
+        cout << "Klaida: neteisingas versijos numeris!" << endl;
         return false;
     }
     if(block.getDifficulty() != difficulty)
     {
+        cout << "Klaida: neteisingas sunkumo lygis!" << endl;
         return false;
     }
     if(block.getTransactions().empty() || block.getTransactions().size() > 100)
     {
+        cout << "Klaida: neteisingas transakcijų skaičius!" << endl;
         return false;
     }
     auto tempBalances = balances;
@@ -173,6 +177,7 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         }
         if(!isValidTransaction(transaction, tempBalances))
         {
+            cout << "Klaida: netinkama transakcija! ID: "<< transaction.getTransactionId() << endl;
             return false;
         }
         transactionIdsInBlock.insert(transaction.getTransactionId());
@@ -188,12 +193,16 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
     string calculatedTxRoot = hashIString(hash);
     if(calculatedTxRoot != block.getTxRoot())
     {
+        cout << "Klaida: neteisingas tx_root!" << endl;
+    cout << "Apskaiciuotas: " << calculatedTxRoot << endl;
+    cout << "Bloke saugomas: " << block.getTxRoot() << endl;
         return false;
     }
     string blockHash = block.calculateBlockHash();
 
     if (blockHash.substr(0, difficulty) != string(difficulty, '0'))
     {
+         cout << "Klaida: neteisingas PoW!" << endl;
         return false;
     }
     updatedBalances = std::move(tempBalances);

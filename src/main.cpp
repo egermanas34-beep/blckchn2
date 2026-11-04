@@ -72,15 +72,10 @@ int main() {
     {
         auto start = std::chrono::steady_clock::now();
         int minedBlocks = 0;
-
         while (blockchain.addBlock())
         {
             minedBlocks++;
         }
-
-        cout << "Iskasta bloku: " << minedBlocks << endl;
-        cout << "Viso bloku: "<< blockchain.getChain().size() << endl;
-        
     
         
         const auto& chain = blockchain.getChain();

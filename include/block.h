@@ -28,4 +28,5 @@ class Block {
     void calculateTXRoot();
     string calculateBlockHash() const;
     void mineBlock();
+    bool mineBlockWithLimit(uint64_t budget, uint64_t& attempts);
 };

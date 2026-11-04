@@ -54,14 +54,15 @@ const vector<Transaction>& Block::getTransactions() const{
     return transactions;
 }
 void Block::calculateTXRoot(){
-   string concatenatedHashes;
+   /*string concatenatedHashes;
         
   for(const auto& transaction : transactions) 
   {
     concatenatedHashes += transaction.getTransactionId();
   }
     auto hash = gautiHash(concatenatedHashes);
-     tx_root = hashIString(hash);
+     tx_root = hashIString(hash);*/
+    tx_root = calculateMerkleRoot(transactions);
 }
 string Block::calculateBlockHash() const
 {

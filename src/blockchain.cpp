@@ -185,13 +185,14 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         tempBalances[transaction.getSender()] -= transaction.getAmount();
         tempBalances[transaction.getReceiver()] += transaction.getAmount();
     }
-    string concatenatedHashes;
+    /*string concatenatedHashes;
     for(const auto& transaction : block.getTransactions())
     {
         concatenatedHashes += transaction.getTransactionId();
     }   
     auto hash = gautiHash(concatenatedHashes);
-    string calculatedTxRoot = hashIString(hash);
+    string calculatedTxRoot = hashIString(hash);*/
+    string calculatedTxRoot = calculateMerkleRoot(block.getTransactions());
     if(calculatedTxRoot != block.getTxRoot())
     {
         cout << "Klaida: neteisingas tx_root!" << endl;

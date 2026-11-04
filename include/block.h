@@ -2,6 +2,7 @@
 #include "include.h"
 #include "transaction.h"
 #include "hash.h"
+#include "merkle.h"
 class Block {
     private:
     string prev_hash;

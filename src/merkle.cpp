@@ -1,5 +1,5 @@
 #include "merkle.h"
-
+#include "hash.h"
 string hexToBytes(const string& hex)
 {
     if(hex.size() != 64)
@@ -20,4 +20,35 @@ string hexToBytes(const string& hex)
         bytes.push_back(static_cast<char>(value));
     }
     return bytes;
+}
+string calculateMerkleRoot(const vector<Transaction>& transactions)
+{
+    if(transactions.empty())
+    {
+        return string(64, '0');
+    }
+
+    vector<string> leafHashes; // vektorius, kuriame bus laikomi transakciju hash'ai
+    leafHashes.reserve(transactions.size());
+    for(const auto& tx : transactions)
+    {
+        leafHashes.push_back(tx.getTransactionId());
+    }
+    while(leafHashes.size() > 1)
+    {
+        if(leafHashes.size() % 2 != 0)
+        {
+            leafHashes.push_back(leafHashes.back()); // jeigu nelyginis, dubliuojame paskutini
+        }
+        vector<string> newHashes; // naujas vektorius, kuriame bus laikomi sujungti hash'ai
+        for(size_t i = 0; i < leafHashes.size(); i += 2)
+        {
+            string combined = leafHashes[i] + leafHashes[i + 1];
+            auto hash = gautiHash(combined);
+            
+            newHashes.push_back(hashIString(hash));
+        }
+        leafHashes = move(newHashes); // perkeliam naujus hash'us i leafHashes
+    }
+    return leafHashes.front(); // graziname galutini Merkle root hash'a
 }

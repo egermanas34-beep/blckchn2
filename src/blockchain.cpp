@@ -451,3 +451,8 @@ int64_t Blockchain::getFinalBalanceSum() const
 
     return sum;
 }
+bool Blockchain::validateBlock(const Block& block) const
+{
+    unordered_map<string, int64_t> updatedBalances;
+    return isValidBlock(block, updatedBalances);
+}

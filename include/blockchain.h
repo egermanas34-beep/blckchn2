@@ -34,4 +34,5 @@ class Blockchain {
     const vector<std::pair<string, string>>& getRejectedTransactions() const;
     int64_t getInitialBalanceSum() const;
     int64_t getFinalBalanceSum() const;
+    bool validateBlock(const Block& block) const;
 };

@@ -4,9 +4,10 @@
 #include "transaction.h"
 #include "block.h"
 #include "blockchain.h"
-
+#include "merkle.h"
 vector<User> generateUsers(int numUsers);
 vector<Transaction> generateTransactions(const vector<User>& users, int numTransactions);
+void testMerkle();
 int main() {
     SetConsoleOutputCP(CP_UTF8); // Nustatome konsolės išvesties koduotę į UTF-8
     SetConsoleCP(CP_UTF8); // Nustatome konsolės įvesties koduotę į UTF-8
@@ -17,7 +18,7 @@ int main() {
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus "<<endl;
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą "<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -257,7 +258,10 @@ vector<User> users = {
 }
 
     }
-
+    else if(choice == 10)
+    {
+        testMerkle();
+    }
     return 0;
 }
 vector<User> generateUsers(int numUsers) {
@@ -301,4 +305,50 @@ vector<Transaction> generateTransactions(const vector<User>& users, int numTrans
 
     return transactions;
 }
+void testMerkle()
+{
+    vector<Transaction> transactions = {
+        Transaction("a1", "b2", 10, 1),
+        Transaction("a1", "b2", 20, 2),
+        Transaction("a1", "b2", 30, 3),
+        Transaction("a1", "b2", 40, 4),
+        Transaction("a1", "b2", 50, 5)
+    };
 
+    // 1, 2, 3 ir 5 transakciju testai
+    for (int n : {1, 2, 3, 5})
+    {
+        vector<Transaction> selected(
+            transactions.begin(),
+            transactions.begin() + n
+        );
+
+        string root = calculateMerkleRoot(selected);
+
+        cout << n << " transakciju Merkle Root: "
+             << root << endl;
+
+        assert(root.size() == 64);
+
+        if (n == 1)
+        {
+            assert(root == selected[0].getTransactionId());
+        }
+    }
+
+    string originalRoot = calculateMerkleRoot(transactions);
+
+    // Pakeiciame vienos transakcijos turini
+    vector<Transaction> modified = transactions;
+    modified[0] = Transaction("a1", "b2", 999, 1);
+
+    assert(calculateMerkleRoot(modified) != originalRoot);
+
+    // Pakeiciame transakciju tvarka
+    vector<Transaction> swapped = transactions;
+    std::swap(swapped[0], swapped[1]);
+
+    assert(calculateMerkleRoot(swapped) != originalRoot);
+
+    cout << "Merkle testai SEKMINGI!" << endl;
+}

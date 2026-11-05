@@ -149,3 +149,141 @@ Projektas naudoja pirmosios praktinės užduoties metu sukurtą 256 bitų maišo
 **Pirmosios užduoties GitHub nuoroda:** (https://github.com/egermanas34-beep/blockchain_technologies.git)
 
 **Naudojama maišos algoritmo versija:** buvo naudojama v0.3 DI patobulinta versija
+
+## v0.2 – Merkle medis, išplėstinė validacija ir blokų kandidatų konkurencija
+
+### 1. Versijos aprašymas
+
+v0.2 versijoje išplėstas ankstesnėje versijoje sukurtos blokų grandinės funkcionalumas. Įgyvendintas Merkle medis, papildyti blokų validacijos testai ir realizuota penkių blokų kandidatų konkurencijos simuliacija.
+Pagrindiniai pakeitimai:
+
+- Ankstesnis `tx_root` skaičiavimas pakeistas dvejetainiu Merkle medžiu.
+- Realizuotas blokų kasimas su ribotu bandymų skaičiumi.
+- Kiekvienam naujam grandinės aukščiui sudaromi penki blokų kandidatai.
+- Kandidatai tikrinami nuosekliai, naudojant atskiras laikinas balansų būsenas.
+- Išrenkamas vienas laimėtojas, kurio blokas papildomai validuojamas.
+- Išplėstas transakcijų ir blokų teisingumo testavimas.
+
+### 2. Merkle medžio realizacija
+
+v0.1 versijoje `tx_root` buvo apskaičiuojamas sujungiant visų bloko transakcijų ID ir pritaikant maišos funkciją.
+v0.2 versijoje realizuotas dvejetainis Merkle medis.
+Jo veikimo principas:
+
+1. Merkle medžio lapai sudaromi iš transakcijų ID jų eilės tvarka bloke.
+2. Maišų HEX reikšmės dekoduojamos į baitus.
+3. Du gretimi mazgai sujungiami ir apskaičiuojama jų bendra maiša: `H(left_bytes || right_bytes)`.
+4. Jeigu lygyje yra nelyginis mazgų skaičius, paskutinis mazgas dubliuojamas.
+5. Procesas kartojamas, kol lieka viena maiša – Merkle šaknis.
+
+Jeigu bloke yra viena transakcija, jos ID tampa Merkle šaknimi. Tuščiam Genesis blokui naudojama tuščios eilutės maiša.
+Merkle medžio skaičiavimui sukurti atskiri `merkle.h` ir `merkle.cpp` failai.
+Funkcija `calculateMerkleRoot()` naudojama tiek formuojant blokus, tiek tikrinant jų teisingumą.
+
+### 3. Penkių blokų kandidatų konkurencija
+
+Ankstesnėje versijoje kiekvienam grandinės aukščiui buvo formuojamas vienas blokas.
+v0.2 versijoje realizuota penkių kandidatų konkurencijos simuliacija.
+
+#### Kandidatų sudarymas
+
+Kiekvienam naujam grandinės aukščiui sukuriami penki kandidatai. Visi jie naudoja tą patį `prev_hash`, laiko žymą ir sudėtingumo lygį (`difficulty = 3`).
+Kiekvienas kandidatas gali turėti iki 100 transakcijų.
+Transakcijos atrenkamos naudojant skirtingas atsitiktinių skaičių generatoriaus pradines reikšmes (`seed`), todėl kandidatų transakcijų rinkiniai ir jų eiliškumas gali skirtis.
+Kandidatų transakcijos gali persidengti, tačiau vieno kandidato bloke negali būti dubliuotų transakcijų.
+
+#### Ribotas Proof-of-Work kasimas
+
+Sukurtas naujas metodas `mineBlockWithLimit()`, leidžiantis kandidatui atlikti ribotą maišos skaičiavimo bandymų skaičių.
+Naudojama tokia strategija:
+
+- Pirmajame etape kiekvienam kandidatui skiriama 1000 bandymų.
+- Jeigu nė vienas kandidatas neranda tinkamo hash, bandymų biudžetas dvigubinamas.
+- Kiekviename naujame etape tęsiama nuo dar netikrinto `nonce`.
+- Didžiausias paieškos etapų skaičius – 8.
+- Kasimo sudėtingumas paieškos metu nemažinamas.
+
+#### Laimėtojo pasirinkimas
+
+Pasibaigus etapui, kuriame bent vienas kandidatas rado tinkamą hash, išrenkamas laimėtojas.
+Laimi kandidatas, kuriam prireikė mažiausiai bandymų. Jeigu bandymų skaičius vienodas, pasirenkamas mažesnio indekso kandidatas.
+Prieš įtraukiant laimėtojo bloką į grandinę, jis papildomai tikrinamas naudojant `isValidBlock()`.
+Tik sėkmingai patvirtinus bloką atnaujinami vartotojų balansai ir transakcijų fondas.
+Nelaimėjusių kandidatų transakcijos neturi poveikio patvirtintai grandinės būsenai.
+
+### 4. Išplėstinė validacija
+
+v0.2 versijoje naudojami trys transakcijų tikrinimo etapai:
+**1. Pirminė validacija**
+Prieš įtraukiant transakciją į fondą tikrinami jos dalyviai, suma, transakcijos ID ir pasikartojimai.
+**2. Kandidato formavimas**
+Atrenkant transakcijas naudojama laikina vartotojų balansų kopija. Transakcijos tikrinamos ir pritaikomos jų numatyta tvarka bloke, todėl neleidžiama išleisti daugiau lėšų, nei turi siuntėjas.
+**3. Galutinė bloko validacija**
+Prieš įtraukiant bloką į grandinę tikrinami:
+
+- Ankstesnio bloko hash (`prev_hash`);
+- Bloko versija ir sudėtingumas;
+- Merkle šaknis (`tx_root`);
+- Proof-of-Work rezultatas;
+- Transakcijų ID ir pasikartojimai;
+- Transakcijų vykdymo galimybė pagal balansus.
+  Netinkamas blokas atmetamas nekeičiant patvirtintų vartotojų balansų, grandinės ir transakcijų fondo.
+
+### 5. Testavimas
+
+#### Merkle medžio testai
+
+Merkle medžio skaičiavimas išbandytas su 1, 2, 3 ir 5 transakcijomis.
+Visais atvejais gautos 64 šešioliktainių simbolių ilgio Merkle šaknys.
+Papildomai patikrinta:
+
+- Vienos transakcijos atveju Merkle šaknis sutampa su jos ID.
+- Pakeitus transakcijos turinį ir perskaičiavus jos ID, Merkle šaknis pasikeičia.
+- Sukeitus dvi skirtingas transakcijas vietomis, Merkle šaknis pasikeičia.
+
+Visi atlikti testai praėjo sėkmingai.
+
+#### Blokų validacijos testai
+
+| Testas                           | Rezultatas      |
+| -------------------------------- | --------------- |
+| Teisingo bloko validacija        | Sėkmingas       |
+| Neteisinga Merkle šaknis         | Blokas atmestas |
+| Netinkamas PoW                   | Blokas atmestas |
+| Dubliuota transakcija bloke      | Blokas atmestas |
+| Viršytas siuntėjo balansas       | Blokas atmestas |
+| Sumažintas bloko sudėtingumas    | Blokas atmestas |
+| Neteisingas `prev_hash`          | Blokas atmestas |
+| Penkių kandidatų balansų patikra | Sėkminga        |
+
+Taip pat patikrinta, kad validacijos metu netinkami blokai nepakeičia patvirtintų balansų, blokų skaičiaus, likusių ir patvirtintų transakcijų skaičių.
+
+### 6. Kandidatų kasimo rezultatai
+
+Vieno atlikto bandymo metu gauti šie rezultatai:
+
+| Kandidatas | Bandymų skaičius | Kasimo laikas (s) | Rastas PoW |
+| ---------- | ---------------: | ----------------: | ---------- |
+| 1          |             3000 |         0.0114442 | Ne         |
+| 2          |             3000 |         0.0085706 | Ne         |
+| 3          |             3000 |         0.0083528 | Ne         |
+| 4          |             3000 |         0.0047028 | Ne         |
+| 5          |             2806 |         0.0067660 | Taip       |
+
+**Laimėtojas – 5 kandidatas.**
+Laimėjusio bloko hash:
+`00033a86b58900aa2b6741db43dea4bc600c195caef3ec3ee2de46864b98ce08`
+Maiša prasideda trimis nuliais, todėl atitinka nustatytą `difficulty = 3` reikalavimą.
+Kasimo laikas gali skirtis priklausomai nuo kompiuterio apkrovos, bloko antraštės ir kitų vykdymo sąlygų.
+
+### 7. Konkurencijos simuliacijos apribojimai
+
+Realizuota penkių blokų kandidatų sistema imituoja konkurenciją dėl naujo bloko, tačiau nėra tikras decentralizuotas konsensuso mechanizmas.
+Visi kandidatai kuriami ir kasami viename procese, nuosekliai vykdant jų PoW paiešką.
+Programoje nenaudojamas P2P tinklas, nepriklausomi tinklo mazgai, blokų perdavimo protokolai ar grandinės šakų persitvarkymo mechanizmai.
+Tai mokomoji simuliacija, skirta suprasti blokų atrankos, validacijos ir Proof-of-Work veikimą.
+
+### 8. v0.2 rezultatas
+
+v0.2 versijoje išsaugotas ankstesnės blokų grandinės funkcionalumas ir sėkmingai integruotas Merkle medis bei penkių kandidatų konkurencijos mechanizmas.
+Atlikti bandymai parodė, kad netinkami blokai atmetami, kandidatai gali būti kasami naudojant ribotą bandymų skaičių, o patvirtintą grandinės būseną keičia tik laimėjusio kandidato transakcijos.

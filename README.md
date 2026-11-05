@@ -287,3 +287,170 @@ Tai mokomoji simuliacija, skirta suprasti blokų atrankos, validacijos ir Proof-
 
 v0.2 versijoje išsaugotas ankstesnės blokų grandinės funkcionalumas ir sėkmingai integruotas Merkle medis bei penkių kandidatų konkurencijos mechanizmas.
 Atlikti bandymai parodė, kad netinkami blokai atmetami, kandidatai gali būti kasami naudojant ribotą bandymų skaičių, o patvirtintą grandinės būseną keičia tik laimėjusio kandidato transakcijos.
+
+## v0.3 – Blokų grandinės optimizavimas naudojant DI
+
+### 1. Versijos aprašymas
+
+v0.3 versijoje buvo siekiama pagerinti ankstesnės v0.2 versijos našumą, išsaugant blokų grandinės funkcionalumą ir duomenų apdorojimo teisingumą.
+Optimizavimui naudotas DI įrankis **ChatGPT (GPT-6)**.
+Pasirinktos dvi optimizavimo kryptys:
+
+1. Proof-of-Work (PoW) kasimo ciklo optimizavimas.
+2. Transakcijų atrankos į blokų kandidatus optimizavimas.
+   Abu pasiūlymai buvo pritaikyti programoje, patikrintas jų teisingumas ir atlikti našumo matavimai.
+
+### 2. Pirmasis optimizavimas – PoW kasimo ciklas
+
+#### Problema
+
+v0.2 versijoje kiekvieno PoW bandymo metu buvo iš naujo formuojama visa bloko antraštės eilutė:
+`prev_hash|timestamp|version|tx_root|nonce|difficulty`
+Kadangi kasimo metu keičiasi tik `nonce`, kitų antraštės laukų pakartotinis sujungimas kiekviename bandyme sukelia nereikalingų operacijų.
+
+#### DI pasiūlytas sprendimas
+
+Optimizuotoje `mineBlockWithLimit()` funkcijoje nekintamos antraštės dalys suformuojamos vieną kartą prieš pradedant kasimą.
+Naudojami du kintamieji:
+
+- `prefix` – nekintama antraštės dalis iki `nonce`;
+- `suffix` – nekintama dalis po `nonce`.
+  Kiekvieno bandymo metu naudojamas tas pats `std::string` buferis, išsaugoma nekintama pradžia ir pridedamos tik aktualios reikšmės.
+  Taip pat PoW sąlygos tikrinimui vietoje `substr()` panaudotas `compare()` metodas.
+  Pakeitimai nekeičia bloko antraštės serializacijos, naudojamos maišos funkcijos ar sudėtingumo reikalavimo.
+
+#### Našumo testas
+
+Abu antraštės formavimo algoritmai palyginti naudojant identiškus duomenis ir tas pačias `nonce` reikšmes.
+Testavimo sąlygos:
+
+- 100 000 maišos skaičiavimų vienam bandymui.
+- 5 matavimai.
+- Ta pati bloko antraštė.
+- Ta pati maišos funkcija.
+- C++17, `g++`, optimizavimas `-O2`.
+- Matavimo metu nespаusdinama kiekvieno bandymo informacija.
+
+#### Rezultatai
+
+| Bandymas                   |     v0.2 (s) |     v0.3 (s) |
+| -------------------------- | -----------: | -----------: |
+| 1                          |     0.250160 |     0.117897 |
+| 2                          |     0.151605 |     0.105886 |
+| 3                          |     0.134356 |     0.126133 |
+| 4                          |     0.177739 |     0.129936 |
+| 5                          |     0.155289 |     0.120026 |
+| **Vidurkis**               | **0.173830** | **0.119976** |
+| **Standartinis nuokrypis** | **0.045380** | **0.009219** |
+
+**Vykdymo laiko sumažėjimas – 30,98 %.**
+Optimizuotas PoW antraštės formavimo algoritmas šiame teste veikė maždaug 1,45 karto sparčiau.
+Papildomai apskaičiuotos abiejų algoritmų rezultatų kontrolinės sumos sutapo.
+**Išvada:** nekintamų bloko antraštės dalių paruošimas ir pakartotinis eilutės buferio naudojimas sumažino PoW bandymams reikalingą laiką.
+
+### 3. Antrasis optimizavimas – transakcijų atranka
+
+#### Problema
+
+v0.2 versijoje `selectTransactions()` funkcija sukurdavo viso transakcijų fondo kopiją ir ją sumaišydavo naudodama `std::shuffle()`.
+Kai fonde yra 10 000 transakcijų, kiekvienam blokų kandidatui reikėdavo kopijuoti visus `Transaction` objektus.
+Kadangi viename objekte saugomos kelios eilutės ir kiti laukai, toks kopijavimas didino atminties naudojimą bei vykdymo laiką.
+
+#### DI pasiūlytas sprendimas
+
+v0.3 versijoje transakcijų objektų kopijavimas pakeistas jų indeksų maišymu.
+Naudojamas `vector<size_t>`, kuriame saugomi transakcijų indeksai.
+Indeksai užpildomi naudojant `std::iota()`, o vėliau sumaišomi su `std::shuffle()`.
+Atrankos metu transakcijos pasiekiamos pagal indeksą, naudojant nuorodą į fonde esantį objektą.
+Taip išvengiama viso transakcijų fondo kopijavimo. Į galutinį blokų kandidatą kopijuojamos tik atrinktos transakcijos, kurių gali būti daugiausia 100.
+Transakcijų validavimo ir laikinų balansų atnaujinimo logika išliko nepakitusi.
+
+#### Našumo testas
+
+Palyginti v0.2 ir v0.3 transakcijų atrankos algoritmai.
+Testavimo sąlygos:
+
+- 1000 vartotojų.
+- 10 000 transakcijų fondas.
+- 5 blokų kandidatai.
+- 10 atrankos ciklų vienam matavimui.
+- Iš viso 50 atrankų per vieną matavimą.
+- 5 matavimai.
+- Tie patys atsitiktinių skaičių generatoriaus `seed`.
+- Ta pati transakcijų validavimo logika.
+  Prieš matavimus papildomai patikrinta, ar abu algoritmai su tais pačiais `seed` atrenka tas pačias transakcijas ta pačia tvarka.
+
+#### Rezultatai
+
+| Bandymas                   |     v0.2 (s) |     v0.3 (s) |
+| -------------------------- | -----------: | -----------: |
+| 1                          |     0.265748 |     0.019383 |
+| 2                          |     0.239709 |     0.024113 |
+| 3                          |     0.254521 |     0.017724 |
+| 4                          |     0.236686 |     0.022662 |
+| 5                          |     0.256311 |     0.019197 |
+| **Vidurkis**               | **0.250595** | **0.020616** |
+| **Standartinis nuokrypis** | **0.012141** | **0.002661** |
+
+**Vykdymo laiko sumažėjimas – 91,77 %.**
+Optimizuotas atrankos algoritmas šiame teste veikė maždaug 12,16 karto sparčiau.
+Abu algoritmai atrinko tokį patį transakcijų skaičių ir tas pačias transakcijas ta pačia tvarka.
+**Išvada:** transakcijų objektų kopijavimo pakeitimas jų indeksų maišymu reikšmingai pagerino atrankos našumą.
+
+### 4. Bendras optimizavimų palyginimas
+
+| Rodiklis              | PoW kasimas | Transakcijų atranka |
+| --------------------- | ----------: | ------------------: |
+| v0.2 vidutinis laikas |  0.173830 s |          0.250595 s |
+| v0.3 vidutinis laikas |  0.119976 s |          0.020616 s |
+| Laiko sumažėjimas     |     30,98 % |             91,77 % |
+| Teisingumo patikra    |    Sėkminga |            Sėkminga |
+
+Abu optimizavimai parodė teigiamus rezultatus.
+Didžiausias pagerėjimas pasiektas transakcijų atrankoje, kurioje buvo pašalintas nereikalingas didelio `Transaction` objektų vektoriaus kopijavimas.
+Svarbu pažymėti, kad pateikti rezultatai apibūdina **atskirų algoritmų našumą**, o ne bendrą visos blokų grandinės programos pagreitėjimą.
+Testuose v0.2 algoritmai buvo atkurti dabartinės programos testavimo funkcijose ir palyginti su optimizuotais v0.3 metodais.
+
+### 5. Programos teisingumo tikrinimas
+
+Po optimizavimų pakartotinai atlikti ankstesni testai.
+Patikrinta:
+
+- Merkle šaknų skaičiavimas su 1, 2, 3 ir 5 transakcijomis.
+- Teisingo bloko validavimas.
+- Neteisingos Merkle šaknies atmetimas.
+- Netinkamo PoW atmetimas.
+- Dubliuotos transakcijos atmetimas.
+- Nepakankamo balanso atvejis.
+- Sumažinto `difficulty` atmetimas.
+- Neteisingo `prev_hash` atmetimas.
+- Penkių blokų kandidatų kasimas.
+- Tik laimėjusio kandidato poveikis vartotojų balansams.
+  Visi pakartotinai paleisti testai praėjo sėkmingai.
+  Našumo testuose papildomai patikrintas PoW rezultatų kontrolinių sumų sutapimas ir abiejų transakcijų atrankos algoritmų rezultatų vienodumas.
+
+### 6. DI naudojimo aprašymas
+
+**Naudotas įrankis:** ChatGPT (GPT-6).
+DI buvo pateiktos anksčiau realizuotos PoW kasimo ir transakcijų atrankos funkcijos bei užduoties reikalavimai.
+Pagrindinės DI užklausų temos:
+
+1. Kaip optimizuoti PoW kasimo ciklą išsaugant tą pačią bloko maišos reikšmę?
+2. Kaip sumažinti transakcijų objektų kopijavimą formuojant blokų kandidatus?
+3. Kaip patikrinti v0.2 ir v0.3 algoritmų našumą tomis pačiomis sąlygomis?
+   **Priimti DI pasiūlymai:**
+
+- Pakartotinai naudoti nekintamas bloko antraštės dalis ir eilutės buferį.
+- Maišyti transakcijų indeksus, o ne visus transakcijų objektus.
+- Atlikti atskirus algoritmų teisingumo ir našumo testus.
+  Pakeitimai buvo integruoti į projektą ir patikrinti praktiniais bandymais.
+  Abu optimizavimo pasiūlymai pasiteisino pagal atliktų testų rezultatus. Šiame etape neprireikė atmesti nė vieno iš dviejų pasirinktų pasiūlymų.
+  DI taip pat buvo naudojamas ankstesnėse v0.1 ir v0.2 projekto kūrimo stadijose, todėl v0.2 laikoma ankstesne programos versija, o ne versija, sukurta visiškai be DI pagalbos.
+
+### 7. v0.3 išvados
+
+Naudojant DI pasiūlymus pavyko patobulinti du blokų grandinės programos algoritmus.
+PoW optimizavimas sumažino testuojamo skaičiavimo laiką 30,98 %, o transakcijų atrankos optimizavimas – 91,77 %.
+Atlikti teisingumo testai parodė, kad optimizavimai nesutrikdė tikrintų blokų grandinės funkcijų.
+Gauti rezultatai parodo, kad net ir nekeičiant pagrindinio algoritmo galima pagerinti programos našumą sumažinant nereikalingas eilutės formavimo, atminties paskirstymo ir objektų kopijavimo operacijas.
+**Apribojimas:** šiame palyginime išmatuotos dvi atskiros algoritmo dalys. Visos programos vykdymo laiko pagreitėjimui įvertinti reikėtų papildomo pilnų v0.2 ir v0.3 versijų palyginimo.

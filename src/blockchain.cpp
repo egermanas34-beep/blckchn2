@@ -82,32 +82,53 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
 }
  vector<Transaction> Blockchain::selectTransactions(uint32_t seed) const 
  {
-    vector<Transaction> selectedTransactions;
+     vector<Transaction> selectedTransactions;
     selectedTransactions.reserve(100);
-    auto tempBalances = balances;
+
+    // Kiekvienas kandidatas turi savo laikina busena
+    unordered_map<string, int64_t> tempBalances = balances;
+
+    // Vietoje transakciju kopijavimo kuriame indeksus
+    vector<size_t> indices(transactionPool.size());
+
+    std::iota(indices.begin(), indices.end(), 0);
+
     std::mt19937 gen(seed);
-    vector<Transaction> shuffledTransactions = transactionPool;
-    std::shuffle(shuffledTransactions.begin(), shuffledTransactions.end(), gen);
-    std::unordered_set<string> selectedIDs;
-    for(const auto& transaction : shuffledTransactions)
+
+    std::shuffle(indices.begin(), indices.end(), gen);
+
+    unordered_set<string> selectedIDs;
+
+    for (size_t index : indices)
     {
-        if(selectedTransactions.size() >= 100)
-        {
-            break;
-        }
-        if(selectedIDs.find(transaction.getTransactionId()) != selectedIDs.end())
+        const Transaction& transaction = transactionPool[index];
+
+        // Ta pati transakcija negali kartotis kandidate
+        if (selectedIDs.find(transaction.getTransactionId())
+            != selectedIDs.end())
         {
             continue;
         }
-        selectedIDs.insert(transaction.getTransactionId());
-        if(isValidTransaction(transaction, tempBalances))
+
+        // Patikriname pagal laikina balansa
+        if (!isValidTransaction(transaction, tempBalances))
         {
-            selectedTransactions.push_back(transaction);
-            tempBalances[transaction.getSender()] -= transaction.getAmount();
-            tempBalances[transaction.getReceiver()] += transaction.getAmount();
+            continue;
+        }
+
+        // Atnaujiname tik laikina kandidato busena
+        tempBalances[transaction.getSender()] -= transaction.getAmount();
+        tempBalances[transaction.getReceiver()] += transaction.getAmount();
+
+        selectedTransactions.push_back(transaction);
+
+        selectedIDs.insert(transaction.getTransactionId());
+
+        if (selectedTransactions.size() == 100)
+        {
+            break;
         }
     }
-
 
     return selectedTransactions;
  }

@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <ctime>
 #include <cassert>
+#include <numeric>
 #include <windows.h>
 using std::string;
 using std::cin;

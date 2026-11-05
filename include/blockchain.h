@@ -25,6 +25,7 @@ class Blockchain {
     Blockchain(const vector<User>& users,const vector<Transaction>& transactions, uint32_t difficulty);
     ~Blockchain();
     const vector<Block>& getChain() const;
+    const unordered_map<string, int64_t>& getBalances() const{return balances;}
     vector<Transaction> selectTransactions(uint32_t seed) const;
     bool addBlock();
     bool verifyBalances() const;

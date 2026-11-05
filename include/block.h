@@ -12,6 +12,7 @@ class Block {
     uint64_t nonce;
     uint32_t difficulty;
     vector<Transaction> transactions;
+    friend struct BlockTestAccess;
     public:
     Block();
     Block(string prev_hash, uint64_t timestamp, uint32_t version, uint32_t difficulty, const vector<Transaction>& transactions);

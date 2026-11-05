@@ -168,7 +168,7 @@ int main() {
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus, 13 testuoti PoW našumą "<<endl;
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus, 13 testuoti PoW našumą, 14 testuoti transakciju atranką "<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -426,6 +426,11 @@ vector<User> users = {
     else if(choice == 13)
     {
         testPoWPerformance();
+    }
+    else if(choice == 14)
+    {
+        
+        blockchain.benchmarkTransactionSelection();
     }
     return 0;
 }

@@ -31,7 +31,7 @@ Blockchain::~Blockchain() {
 void Blockchain::GenesisBlock() {
     string prevHash(64, '0');
     uint64_t timestamp = 0;
-    uint32_t version = 1;
+    uint32_t version = 2;
     uint32_t genesisDifficulty = 0;
 
     vector<Transaction> genesisTransactions;
@@ -80,12 +80,12 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
     }
     return true;
 }
- vector<Transaction> Blockchain::selectTransactions() const 
+ vector<Transaction> Blockchain::selectTransactions(uint32_t seed) const 
  {
     vector<Transaction> selectedTransactions;
     selectedTransactions.reserve(100);
     auto tempBalances = balances;
-    std::mt19937 gen(42);
+    std::mt19937 gen(seed);
     vector<Transaction> shuffledTransactions = transactionPool;
     std::shuffle(shuffledTransactions.begin(), shuffledTransactions.end(), gen);
     std::unordered_set<string> selectedIDs;
@@ -112,40 +112,136 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
     return selectedTransactions;
  }
  bool Blockchain::addBlock()
- {
-    vector<Transaction> selectedTransactions = selectTransactions();
-    if(selectedTransactions.empty())
-    {
-        return false;
-    }
+{
+    const int candidateCount = 5;
+
     string prevHash = chain.back().calculateBlockHash();
     uint64_t timestamp = static_cast<uint64_t>(std::time(nullptr));
-    uint32_t version = 1;
-    Block newBlock(prevHash, timestamp, version, difficulty, selectedTransactions);
-    newBlock.mineBlock();
-    unordered_map<string, int64_t> updatedBalances;
-    if(!isValidBlock(newBlock, updatedBalances))
+    uint32_t version = 2;
+
+    vector<Block> candidates;
+    candidates.reserve(candidateCount);
+
+    // Sukuriame 5 kandidatus
+    for (int i = 0; i < candidateCount; i++)
+    {
+        uint32_t seed = 42 + static_cast<uint32_t>(chain.size()) * 5 + i;
+
+        vector<Transaction> selectedTransactions = selectTransactions(seed);
+
+        if (selectedTransactions.empty())
+        {
+            return false;
+        }
+
+        candidates.emplace_back(
+            prevHash, timestamp, version,
+            difficulty, selectedTransactions
+        );
+    }
+
+    vector<bool> found(candidateCount, false); // Sekame, kurie kandidatai rado tinkamą nonce
+    vector<uint64_t> totalAttempts(candidateCount, 0); // Sekame, kiek bandymų kiekvienas kandidatas atliko
+    vector<double> miningTimes(candidateCount, 0.0); // Sekame, kiek laiko užtruko kiekvienas kandidatas
+
+    int winnerIndex = -1;
+
+    // Kandidatu kasimas
+    for (int round = 0; round < 8; round++) // 8 raundai, kiekviename raunde didiname biudžetą
+    {
+        uint64_t budget = 1000ULL << round; // Biudžetas didėja eksponentiškai: 1000, 2000, 4000, ..., 128000
+
+        for (int i = 0; i < candidateCount; i++)
+        {
+            if (found[i])
+            {
+                continue;
+            }
+
+            uint64_t attempts = 0;
+
+            auto start = std::chrono::steady_clock::now();
+
+            found[i] = candidates[i].mineBlockWithLimit(budget, attempts); // Bandome iškasti kandidatą su biudžetu
+
+            auto end = std::chrono::steady_clock::now();
+
+            std::chrono::duration<double> duration = end - start;
+
+            totalAttempts[i] += attempts;
+            miningTimes[i] += duration.count();
+        }
+
+        // Ieskom laimetojo tarp sekmingu kandidatu
+        for (int i = 0; i < candidateCount; i++)
+        {
+            if (found[i] &&
+                (winnerIndex == -1 || totalAttempts[i] < totalAttempts[winnerIndex]))
+            {
+                winnerIndex = i;
+            }
+        }
+
+        if (winnerIndex != -1)
+        {
+            break;
+        }
+    }
+
+    // Kandidatu rezultatai
+    for (int i = 0; i < candidateCount; i++)
+    {
+        cout << "Kandidatas " << i + 1
+             << " | Bandymai: " << totalAttempts[i]
+             << " | Laikas: " << miningTimes[i] << " s"
+             << " | Rastas: " << (found[i] ? "TAIP" : "NE")
+             << endl;
+    }
+
+    if (winnerIndex == -1)
+    {
+        cout << "Nepavyko rasti tinkamo bloko!" << endl;
+        return false;
+    }
+
+    // Paimame laimejusi kandidata
+    const Block& newBlock = candidates[winnerIndex];
+
+    unordered_map<string, int64_t> updatedBalances; // Naujas balansų žemėlapis, kuris bus naudojamas patikrinimui
+
+    if (!isValidBlock(newBlock, updatedBalances))
     {
         return false;
     }
+
+    // Patvirtiname tik laimetojo bloka
     chain.push_back(newBlock);
     balances = std::move(updatedBalances);
-    for(const auto& transaction : selectedTransactions)
+
+    for (const auto& transaction : newBlock.getTransactions())
     {
         confirmedTransactionIds.insert(transaction.getTransactionId());
     }
+
+    // Atnaujiname transakciju fonda
     vector<Transaction> remainingTransactions;
     remainingTransactions.reserve(transactionPool.size());
-    for(const auto& transaction : transactionPool)
+
+    for (const auto& transaction : transactionPool)
     {
-        if(confirmedTransactionIds.find(transaction.getTransactionId()) == confirmedTransactionIds.end())
+        if (confirmedTransactionIds.find(transaction.getTransactionId()) ==confirmedTransactionIds.end())
         {
             remainingTransactions.push_back(transaction);
         }
     }
+
     transactionPool = std::move(remainingTransactions);
+
+    cout << "Laimejo kandidatas: " << winnerIndex + 1 << endl;
+    cout << "Bloko hash: " << newBlock.calculateBlockHash() << endl;
+
     return true;
- }
+}
  bool Blockchain::isValidBlock(const Block& block, unordered_map<string, int64_t>& updatedBalances) const
  {
     if(block.getPrevHash() != chain.back().calculateBlockHash())
@@ -153,7 +249,7 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         cout << "Klaida: neteisingas prev_hash!" << endl;
         return false;
     }
-    if(block.getVersion() != 1)
+    if(block.getVersion() != 2)
     {
         cout << "Klaida: neteisingas versijos numeris!" << endl;
         return false;
@@ -185,13 +281,14 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         tempBalances[transaction.getSender()] -= transaction.getAmount();
         tempBalances[transaction.getReceiver()] += transaction.getAmount();
     }
-    string concatenatedHashes;
+    /*string concatenatedHashes;
     for(const auto& transaction : block.getTransactions())
     {
         concatenatedHashes += transaction.getTransactionId();
     }   
     auto hash = gautiHash(concatenatedHashes);
-    string calculatedTxRoot = hashIString(hash);
+    string calculatedTxRoot = hashIString(hash);*/
+    string calculatedTxRoot = calculateMerkleRoot(block.getTransactions());
     if(calculatedTxRoot != block.getTxRoot())
     {
         cout << "Klaida: neteisingas tx_root!" << endl;
@@ -353,4 +450,9 @@ int64_t Blockchain::getFinalBalanceSum() const
         sum += balance;
 
     return sum;
+}
+bool Blockchain::validateBlock(const Block& block) const
+{
+    unordered_map<string, int64_t> updatedBalances;
+    return isValidBlock(block, updatedBalances);
 }

@@ -2,6 +2,7 @@
 #include "include.h"
 #include "transaction.h"
 #include "hash.h"
+#include "merkle.h"
 class Block {
     private:
     string prev_hash;
@@ -11,6 +12,7 @@ class Block {
     uint64_t nonce;
     uint32_t difficulty;
     vector<Transaction> transactions;
+    friend struct BlockTestAccess;
     public:
     Block();
     Block(string prev_hash, uint64_t timestamp, uint32_t version, uint32_t difficulty, const vector<Transaction>& transactions);
@@ -27,4 +29,5 @@ class Block {
     void calculateTXRoot();
     string calculateBlockHash() const;
     void mineBlock();
+    bool mineBlockWithLimit(uint64_t budget, uint64_t& attempts);
 };

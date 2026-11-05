@@ -54,14 +54,15 @@ const vector<Transaction>& Block::getTransactions() const{
     return transactions;
 }
 void Block::calculateTXRoot(){
-   string concatenatedHashes;
+   /*string concatenatedHashes;
         
   for(const auto& transaction : transactions) 
   {
     concatenatedHashes += transaction.getTransactionId();
   }
     auto hash = gautiHash(concatenatedHashes);
-     tx_root = hashIString(hash);
+     tx_root = hashIString(hash);*/
+    tx_root = calculateMerkleRoot(transactions);
 }
 string Block::calculateBlockHash() const
 {
@@ -94,4 +95,29 @@ void Block::mineBlock()
     std::cout << "Bandymų skaičius: " << attempts << endl;
     std::cout << "Praėjęs laikas: " << elapsed.count() << " sekundžių"<< endl;
     cout << "Bloko hash: " << calculateBlockHash() << endl;
+}
+bool Block::mineBlockWithLimit(uint64_t budget, uint64_t& attempts)
+{
+ attempts = 0;
+ if( difficulty == 0 || difficulty > 64)
+ {
+    throw std::invalid_argument("Neteisingas sunkumo lygis!");
+ }
+ string targetPrefix(difficulty, '0');
+ while(attempts < budget)
+ {
+    string blockHash = calculateBlockHash();
+    attempts++;
+    if(blockHash.substr(0, difficulty) == targetPrefix)
+    {
+        return true;
+    }
+    if(nonce == UINT64_MAX)
+    {
+        throw std::overflow_error("Nonce pasiekė maksimalia reikšmę!");
+    }
+    nonce++;
+
+ }
+ return false;
 }

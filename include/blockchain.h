@@ -25,7 +25,8 @@ class Blockchain {
     Blockchain(const vector<User>& users,const vector<Transaction>& transactions, uint32_t difficulty);
     ~Blockchain();
     const vector<Block>& getChain() const;
-    vector<Transaction> selectTransactions() const;
+    const unordered_map<string, int64_t>& getBalances() const{return balances;}
+    vector<Transaction> selectTransactions(uint32_t seed) const;
     bool addBlock();
     bool verifyBalances() const;
     size_t getConfirmedTransactionCount() const;
@@ -34,4 +35,5 @@ class Blockchain {
     const vector<std::pair<string, string>>& getRejectedTransactions() const;
     int64_t getInitialBalanceSum() const;
     int64_t getFinalBalanceSum() const;
+    bool validateBlock(const Block& block) const;
 };

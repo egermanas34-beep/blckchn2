@@ -6,6 +6,134 @@
 #include "blockchain.h"
 #include "merkle.h"
 
+
+struct BenchmarkResult
+{
+    double time;
+    uint64_t checksum;
+};
+
+template<bool optimized>
+BenchmarkResult measurePoW(uint64_t iterations)
+{
+    const string prevHash(64, '0');
+    const uint64_t timestamp = 1234567890;
+    const uint32_t version = 2;
+    const string txRoot(64, 'a');
+    const uint32_t difficulty = 3;
+
+    // v0.3 optimizavimui
+    const string prefix =
+        prevHash + "|" +
+        std::to_string(timestamp) + "|" +
+        std::to_string(version) + "|" +
+        txRoot + "|";
+
+    const string suffix = "|" + std::to_string(difficulty);
+
+    string data = prefix;
+    data.reserve(prefix.size() + 20 + suffix.size());
+
+    uint64_t checksum = 0;
+
+    auto start = std::chrono::steady_clock::now();
+
+    for (uint64_t nonce = 0; nonce < iterations; nonce++)
+    {
+        if constexpr (optimized)
+        {
+            // v0.3 - pakartotinis buferio naudojimas
+            data.resize(prefix.size());
+            data += std::to_string(nonce);
+            data += suffix;
+        }
+        else
+        {
+            // v0.2 - visa antraste formuojama is naujo
+            data =
+                prevHash + "|" +
+                std::to_string(timestamp) + "|" +
+                std::to_string(version) + "|" +
+                txRoot + "|" +
+                std::to_string(nonce) + "|" +
+                std::to_string(difficulty);
+        }
+
+        auto hash = gautiHash(data);
+        string blockHash = hashIString(hash);
+
+        // Kad skaiciavimai butu panaudojami
+        checksum = checksum * 1315423911ULL
+                 + std::hash<string>{}(blockHash);
+    }
+
+    auto end = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+
+    return {duration.count(), checksum};
+}
+void testPoWPerformance()
+{
+    const uint64_t iterations = 100000;
+    const int runs = 5;
+
+    double totalV02 = 0;
+    double totalV03 = 0;
+
+    cout << std::fixed << std::setprecision(6);
+
+    cout << "\n===== PoW NASUMO TESTAS =====\n";
+    cout << "Hash skaiciavimu: " << iterations << "\n\n";
+
+    for (int i = 0; i < runs; i++)
+    {
+        BenchmarkResult v02;
+        BenchmarkResult v03;
+
+        // Keiciame vykdymo tvarka, kad sumazintume
+        // pirmojo algoritmo matavimo pranasuma
+        if (i % 2 == 0)
+        {
+            v02 = measurePoW<false>(iterations);
+            v03 = measurePoW<true>(iterations);
+        }
+        else
+        {
+            v03 = measurePoW<true>(iterations);
+            v02 = measurePoW<false>(iterations);
+        }
+
+        if (v02.checksum != v03.checksum)
+        {
+            cout << "KLAIDA: algoritmu rezultatai nesutampa!\n";
+            return;
+        }
+
+        totalV02 += v02.time;
+        totalV03 += v03.time;
+
+        cout << "Bandymas " << i + 1
+             << " | v0.2: " << v02.time << " s"
+             << " | v0.3: " << v03.time << " s\n";
+    }
+
+    double avgV02 = totalV02 / runs;
+    double avgV03 = totalV03 / runs;
+
+    double improvement =
+        (avgV02 - avgV03) / avgV02 * 100.0;
+
+    cout << "\n===== REZULTATAI =====\n";
+
+    cout << "v0.2 vidurkis: " << avgV02 << " s\n";
+    cout << "v0.3 vidurkis: " << avgV03 << " s\n";
+
+    cout << "Pagreitejimas: " << improvement << " %\n";
+
+    cout << "Rezultatu patikra: SEKMINGA\n";
+}
+
 struct BlockTestAccess
 {
     static void corruptMerkleRoot(Block& block)
@@ -40,7 +168,7 @@ int main() {
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus "<<endl;
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus, 13 testuoti PoW našumą "<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -295,7 +423,10 @@ vector<User> users = {
         testInvalidPrevHash();
         testCandidateBalances();
     }
-
+    else if(choice == 13)
+    {
+        testPoWPerformance();
+    }
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

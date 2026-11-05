@@ -130,7 +130,8 @@ bool Block::mineBlockWithLimit(uint64_t budget, uint64_t& attempts)
         data += std::to_string(nonce);
         data += suffix;
 
-        string blockHash = hashIString(gautiHash(data));
+        auto hash = gautiHash(data);
+        string blockHash = hashIString(hash);
 
         attempts++;
 

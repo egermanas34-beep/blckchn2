@@ -161,17 +161,21 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         );
     }
 
-    vector<bool> found(candidateCount, false); // Sekame, kurie kandidatai rado tinkamą nonce
+    vector<int> found(candidateCount, 0); // Sekame, kurie kandidatai rado tinkamą nonce
     vector<uint64_t> totalAttempts(candidateCount, 0); // Sekame, kiek bandymų kiekvienas kandidatas atliko
     vector<double> miningTimes(candidateCount, 0.0); // Sekame, kiek laiko užtruko kiekvienas kandidatas
 
     int winnerIndex = -1;
 
+    // Pradedame matuoti bendra kasimo laika
+    auto miningStart = std::chrono::steady_clock::now();
+
     // Kandidatu kasimas
     for (int round = 0; round < 8; round++) // 8 raundai, kiekviename raunde didiname biudžetą
     {
         uint64_t budget = 1000ULL << round; // Biudžetas didėja eksponentiškai: 1000, 2000, 4000, ..., 128000
-
+        
+        #pragma omp parallel for schedule(static) // Naudojame OpenMP, kad kandidatai būtų kasami lygiagrečiai
         for (int i = 0; i < candidateCount; i++)
         {
             if (found[i])
@@ -183,12 +187,13 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
 
             auto start = std::chrono::steady_clock::now();
 
-            found[i] = candidates[i].mineBlockWithLimit(budget, attempts); // Bandome iškasti kandidatą su biudžetu
+            bool success = candidates[i].mineBlockWithLimit(budget, attempts); // Bandome iškasti kandidatą su biudžetu
 
             auto end = std::chrono::steady_clock::now();
 
             std::chrono::duration<double> duration = end - start;
 
+            found[i] = success ? 1 : 0; // Pažymime, ar kandidatas rado tinkamą nonce
             totalAttempts[i] += attempts;
             miningTimes[i] += duration.count();
         }
@@ -208,7 +213,9 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
             break;
         }
     }
-
+    auto miningEnd = std::chrono::steady_clock::now();
+    std::chrono::duration<double> totalMiningDuration = miningEnd - miningStart;
+    cout << "Bendra kasimo trukme: " << totalMiningDuration.count() << " s" << endl;
     // Kandidatu rezultatai
     for (int i = 0; i < candidateCount; i++)
     {
@@ -655,4 +662,238 @@ void Blockchain::benchmarkTransactionSelection() const
 
     cout << "Pagreitejimas: " << improvement << " %\n";
     cout << "Atrankos rezultatu patikra: SEKMINGA\n";
+}
+void Blockchain::benchmarkParallelMining()
+{
+    const int candidateCount = 5;
+    const int repetitions = 10;
+    const vector<int> threadCounts = {1, 2, 5};
+
+    omp_set_dynamic(0);
+
+    string prevHash = chain.back().calculateBlockHash();
+    uint64_t timestamp = static_cast<uint64_t>(std::time(nullptr));
+    uint32_t version = 2;
+
+    // Sukuriame tuos pacius 5 kandidatus visiems testams
+    vector<Block> baseCandidates;
+    baseCandidates.reserve(candidateCount);
+
+    for (int i = 0; i < candidateCount; i++)
+    {
+        uint32_t seed =
+            42 + static_cast<uint32_t>(chain.size()) * 5 + i;
+
+        vector<Transaction> selectedTransactions =
+            selectTransactions(seed);
+
+        if (selectedTransactions.empty())
+        {
+            cout << "Nepavyko sukurti kandidatu!" << endl;
+            return;
+        }
+
+        baseCandidates.emplace_back(
+            prevHash, timestamp, version,
+            difficulty, selectedTransactions
+        );
+    }
+
+    struct RunResult
+    {
+        double seconds;
+        int winnerIndex;
+        string blockHash;
+    };
+
+    // Vienas kasimo bandymas su nurodytu giju skaiciumi
+    auto runMining = [&](int threadCount) -> RunResult
+    {
+        // Nauja kopija, kad kiekvienas testas prasidetu
+        // nuo tos pacios nonce reiksmes
+        vector<Block> candidates = baseCandidates;
+
+        vector<int> found(candidateCount, 0);
+        vector<uint64_t> totalAttempts(candidateCount, 0);
+
+        int winnerIndex = -1;
+
+        auto start = std::chrono::steady_clock::now();
+
+        for (int round = 0; round < 8; round++)
+        {
+            uint64_t budget = 1000ULL << round;
+
+            // Vieno kandidato kasimas
+            auto mineCandidate = [&](int i)
+            {
+                if (found[i])
+                {
+                    return;
+                }
+
+                uint64_t attempts = 0;
+
+                bool success = candidates[i].mineBlockWithLimit(
+                    budget, attempts
+                );
+
+                found[i] = success ? 1 : 0;
+                totalAttempts[i] += attempts;
+            };
+
+            if (threadCount == 1)
+            {
+                // Nuoseklus kasimas be OpenMP
+                for (int i = 0; i < candidateCount; i++)
+                {
+                    mineCandidate(i);
+                }
+            }
+            else
+            {
+                // Lygiagretus kasimas su OpenMP
+                #pragma omp parallel for num_threads(threadCount) schedule(static)
+                for (int i = 0; i < candidateCount; i++)
+                {
+                    mineCandidate(i);
+                }
+            }
+
+            // Laimetoja renkame tik uzbaigus visas gijas
+            for (int i = 0; i < candidateCount; i++)
+            {
+                if (found[i] &&
+                    (winnerIndex == -1 ||
+                     totalAttempts[i] < totalAttempts[winnerIndex]))
+                {
+                    winnerIndex = i;
+                }
+            }
+
+            if (winnerIndex != -1)
+            {
+                break;
+            }
+        }
+
+        auto end = std::chrono::steady_clock::now();
+
+        std::chrono::duration<double> duration = end - start;
+
+        if (winnerIndex == -1)
+        {
+            return {duration.count(), -1, ""};
+        }
+
+        return {
+            duration.count(),
+            winnerIndex,
+            candidates[winnerIndex].calculateBlockHash()
+        };
+    };
+
+    // Apsildymo bandymai
+    for (int threads : threadCounts)
+    {
+        RunResult warmup = runMining(threads);
+
+        if (warmup.winnerIndex == -1)
+        {
+            cout << "Apsildymo metu nepavyko iskasti bloko!" << endl;
+            return;
+        }
+    }
+
+    vector<vector<double>> times(threadCounts.size());
+
+    int referenceWinner = -1;
+    string referenceHash;
+
+    cout << "\n=== OpenMP nasumo testas ===" << endl;
+    cout << "Difficulty: " << difficulty << endl;
+    cout << "Kandidatai: " << candidateCount << endl;
+    cout << "Matavimai: " << repetitions << endl;
+
+    // Kartojame bandymus, keisdami giju skaiciaus tvarka
+    for (int rep = 0; rep < repetitions; rep++)
+    {
+        cout << "\nBandymas " << rep + 1 << ":" << endl;
+
+        for (int j = 0; j < static_cast<int>(threadCounts.size()); j++)
+        {
+            int index = (rep + j) % threadCounts.size();
+            int threads = threadCounts[index];
+
+            RunResult result = runMining(threads);
+
+            if (result.winnerIndex == -1)
+            {
+                cout << "Kasimas nepavyko!" << endl;
+                return;
+            }
+
+            // Patikriname, ar rezultatai sutampa
+            if (referenceWinner == -1)
+            {
+                referenceWinner = result.winnerIndex;
+                referenceHash = result.blockHash;
+            }
+            else if (result.winnerIndex != referenceWinner ||
+                     result.blockHash != referenceHash)
+            {
+                cout << "KLAIDA: Kasimo rezultatai nesutampa!" << endl;
+                return;
+            }
+
+            times[index].push_back(result.seconds);
+
+            cout << threads << " gijos: "
+                 << std::fixed << std::setprecision(6)
+                 << result.seconds << " s" << endl;
+        }
+    }
+
+    // Vidurkio skaiciavimas
+    auto calculateMean = [](const vector<double>& values)
+    {
+        double sum = std::accumulate(
+            values.begin(), values.end(), 0.0
+        );
+
+        return sum / values.size();
+    };
+
+    // Imties standartinio nuokrypio skaiciavimas
+    auto calculateStdDev = [&](const vector<double>& values)
+    {
+        double mean = calculateMean(values);
+        double sum = 0.0;
+
+        for (double value : values)
+        {
+            sum += (value - mean) * (value - mean);
+        }
+
+        return std::sqrt(sum / (values.size() - 1));
+    };
+
+    double sequentialMean = calculateMean(times[0]);
+
+    cout << "\n=== GALUTINIAI REZULTATAI ===" << endl;
+
+    for (int i = 0; i < static_cast<int>(threadCounts.size()); i++)
+    {
+        double mean = calculateMean(times[i]);
+        double stddev = calculateStdDev(times[i]);
+        double speedup = sequentialMean / mean;
+
+        cout << "\nGijos: " << threadCounts[i] << endl;
+        cout << "Vidutinis laikas: " << mean << " s" << endl;
+        cout << "Standartinis nuokrypis: " << stddev << " s" << endl;
+        cout << "Pagreitejimas: " << speedup << "x" << endl;
+    }
+
+    cout << "\nVisu testu laimetojas ir bloko hash sutapo!"
+         << endl;
 }

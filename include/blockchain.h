@@ -37,4 +37,5 @@ class Blockchain {
     int64_t getFinalBalanceSum() const;
     bool validateBlock(const Block& block) const;
     void benchmarkTransactionSelection() const;
+    void benchmarkParallelMining();
 };

@@ -162,13 +162,22 @@ int main() {
     SetConsoleOutputCP(CP_UTF8); // Nustatome konsolės išvesties koduotę į UTF-8
     SetConsoleCP(CP_UTF8); // Nustatome konsolės įvesties koduotę į UTF-8
 
-
+    
     vector<User> users = generateUsers(1000);
 
     vector<Transaction> transactions = generateTransactions(users, 10000);
     
     Blockchain blockchain(users, transactions, 3);
-    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus, 13 testuoti PoW našumą, 14 testuoti transakciju atranką "<<endl;
+   
+   /*if (blockchain.addBlock())
+    {
+        cout << "Blokas sekmingai iskastas!" << endl;
+    }
+    else
+    {
+        cout << "Bloko iskasti nepavyko!" << endl;
+    }*/
+    cout<<"ka norite padaryti? 1. isvesti 5 naudotoju informacija 2. isvesti 5 transakciju informacija 3. sukurti bloka 5 transakciju, 4. genesis blokas, 5. iskviesti kelis blokus, 6 pratestuoti tranzakciju patikra, 7 testuoti blokų generavimą, 8 dubliuotu transakciju tikrinimas, 9 istestuoti klaidu atsakymus, 10 testuoti Merkle medzių generavimą, 11 testuoti neteisingo prev_hash tikrinimą, 12 testuoti visus testus, 13 testuoti PoW našumą, 14 testuoti transakciju atranką , 15 testuoti openMP našumą"<<endl;
     int choice;
     cin >> choice;
     if (choice == 1) {
@@ -432,6 +441,11 @@ vector<User> users = {
         
         blockchain.benchmarkTransactionSelection();
     }
+    else if(choice == 15)
+    {
+        blockchain.benchmarkParallelMining();
+    }
+
     return 0;
 }
 vector<User> generateUsers(int numUsers) {

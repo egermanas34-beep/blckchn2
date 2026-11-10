@@ -454,3 +454,116 @@ PoW optimizavimas sumažino testuojamo skaičiavimo laiką 30,98 %, o transakcij
 Atlikti teisingumo testai parodė, kad optimizavimai nesutrikdė tikrintų blokų grandinės funkcijų.
 Gauti rezultatai parodo, kad net ir nekeičiant pagrindinio algoritmo galima pagerinti programos našumą sumažinant nereikalingas eilutės formavimo, atminties paskirstymo ir objektų kopijavimo operacijas.
 **Apribojimas:** šiame palyginime išmatuotos dvi atskiros algoritmo dalys. Visos programos vykdymo laiko pagreitėjimui įvertinti reikėtų papildomo pilnų v0.2 ir v0.3 versijų palyginimo.
+
+## v0.4 – Lygiagretus blokų kasimas naudojant OpenMP
+
+### 1. Versijos aprašymas
+
+v0.4 versijoje papildytas ankstesnėje v0.3 versijoje realizuotas blokų kasimo mechanizmas, pritaikant lygiagretų programavimą su **OpenMP**.
+Pagrindinis tikslas – pagreitinti penkių blokų kandidatų kasimą, išsaugant ankstesnės versijos funkcionalumą ir blokų grandinės teisingumą.
+Ankstesnėje versijoje penki kandidatai buvo kasami nuosekliai, o v0.4 versijoje jie gali būti kasami vienu metu, naudojant kelias procesoriaus gijas.
+
+### 2. Lygiagretaus kasimo įgyvendinimas
+
+Lygiagretinimas įgyvendintas `Blockchain::addBlock()` funkcijoje, naudojant OpenMP direktyvą:
+
+```cpp
+#pragma omp parallel for schedule(static)
+for (int i = 0; i < candidateCount; i++)
+{
+    // Kiekviena gija kasa atskirą blokų kandidatą
+}
+```
+
+Kiekviena gija savarankiškai vykdo jai priskirto kandidato PoW kasimą, naudodama jau optimizuotą `mineBlockWithLimit()` funkciją.
+Siekiant išvengti duomenų lenktynių, kiekviena gija keičia tik savo kandidato duomenis ir atitinkamus rezultatų masyvų elementus.
+Papildomai `vector<bool>` pakeistas į `vector<int>`, nes `vector<bool>` elementai saugomi specialiu bitų pavidalu ir gali sukelti problemų lygiagrečiai keičiant jų reikšmes.
+Laimėtojas išrenkamas tik pasibaigus einamajam lygiagretaus kasimo raundui, kai visos gijos užbaigia darbą.
+**Išsaugota ankstesnė kandidatų konkurencijos logika:**
+
+- Kiekvienam blokui sukuriami 5 kandidatai.
+- Kiekvienas kandidatas turi atskirai atrinktas transakcijas.
+- Kasimas vykdomas raundais, didinant bandymų biudžetą.
+- Laimėtojas nustatomas pagal mažiausią atliktų PoW bandymų skaičių.
+- Tik laimėjęs blokas validuojamas ir pridedamas prie grandinės.
+- Vartotojų balansai atnaujinami tik patvirtinus laimėjusį bloką.
+
+### 3. Našumo testavimas
+
+Siekiant įvertinti OpenMP efektyvumą, sukurta atskira `benchmarkParallelMining()` funkcija.
+Testas palygina nuoseklų ir lygiagretų blokų kasimą, naudojant skirtingą gijų skaičių.
+**Testavimo sąlygos:**
+
+- Blokų kandidatų skaičius – 5.
+- PoW sudėtingumas (`difficulty`) – 3.
+- Naudojamas gijų skaičius – 1, 2 ir 5.
+- Kiekvienai konfigūracijai atlikta 10 matavimų.
+- Prieš matavimus atlikti apšilimo bandymai.
+- Visoms konfigūracijoms naudojami identiški pradiniai blokų kandidatai.
+- Gijų konfigūracijų testavimo tvarka keičiama tarp bandymų.
+- Kompiliuojama naudojant C++17, `-O2` ir `-fopenmp`.
+
+Kiekvienas matavimas pradedamas nuo tų pačių kandidatų pradinių būsenų, todėl skirtingos gijų konfigūracijos sprendžia identišką PoW užduotį.
+Testas nekeičia blokų grandinės būsenos, vartotojų balansų ar transakcijų fondo.
+
+#### Našumo rezultatai
+
+| Rodiklis                   |   1 gija |  2 gijos |  5 gijos |
+| -------------------------- | -------: | -------: | -------: |
+| Vidutinis laikas (s)       | 0.005377 | 0.003691 | 0.002586 |
+| Standartinis nuokrypis (s) | 0.000948 | 0.000677 | 0.001003 |
+| Pagreitėjimas              |    1.00x |    1.46x |    2.08x |
+| Laiko sumažėjimas          |        – |  31.36 % |  51.91 % |
+
+Gauti rezultatai rodo, kad didinant naudojamų gijų skaičių vidutinė blokų kandidatų kasimo trukmė sumažėjo.
+Naudojant 2 gijas pasiektas maždaug **1,46 karto pagreitėjimas**, o naudojant 5 gijas – **2,08 karto pagreitėjimas**, palyginti su nuosekliu kasimu.
+Didžiausias našumo pagerėjimas pasiektas naudojant 5 gijas – vidutinis kasimo laikas sumažėjo apie **51,91 %**.
+Nors penki kandidatai gali būti kasami lygiagrečiai, penkių kartų pagreitėjimas nepasiektas. Tam įtakos gali turėti gijų valdymo ir sinchronizavimo sąnaudos bei nevienoda kandidatų kasimo trukmė.
+
+### 4. Teisingumo testavimas
+
+Našumo teste papildomai tikrinama, ar skirtingas gijų skaičius nekeičia kasimo rezultato.
+Kiekvieno matavimo metu palyginami:
+
+- Laimėjusio kandidato indeksas.
+- Laimėjusio bloko maišos reikšmė.
+  Visuose matavimuose gauti identiški rezultatai.
+  Programos išvestis:
+
+```text
+Visu testu laimetojas ir bloko hash sutapo!
+```
+
+Taip pat pakartotinai paleisti ankstesni blokų grandinės teisingumo testai. Visi testai praėjo sėkmingai.
+Tai patvirtina, kad atliktuose bandymuose lygiagretus kasimas nepakeitė blokų grandinės veikimo rezultatų.
+
+### 5. DI naudojimas
+
+**Naudotas įrankis:** ChatGPT (GPT-6).
+DI buvo naudojamas analizuojant galimybę papildyti ankstesnę blokų grandinės versiją lygiagrečiu kasimu.
+Priimti DI pasiūlymai:
+
+1. Naudoti OpenMP penkių nepriklausomų blokų kandidatų kasimui.
+2. Pakeisti `vector<bool>` į `vector<int>`, siekiant išvengti galimų duomenų lenktynių.
+3. Atskirai matuoti bendrą kandidatų kasimo trukmę.
+4. Sukurti automatizuotą našumo testą, palyginantį 1, 2 ir 5 gijų konfigūracijas.
+5. Tikrinti, ar skirtingas gijų skaičius nekeičia laimėjusio bloko rezultato.
+   Pasiūlyti pakeitimai buvo pritaikyti programoje ir patikrinti testais.
+
+### 6. Kompiliavimas
+
+Kadangi v0.4 versijoje naudojamas OpenMP, kompiliuojant būtina pridėti `-fopenmp` parametrą.
+
+```bash
+g++ -std=c++17 -O2 -fopenmp -Iinclude src/*.cpp -o blockchain.exe
+```
+
+Programos paleidimas:
+
+```bash
+./blockchain.exe
+```
+
+### 7. Išvados
+
+v0.4 versijoje sėkmingai įgyvendintas lygiagretus blokų kandidatų kasimas naudojant OpenMP. Atliktas našumo testas parodė, kad naudojant 5 gijas pasiektas **2,08 karto pagreitėjimas**, palyginti su nuosekliu kasimu. Visi atlikti teisingumo testai praėjo sėkmingai, o skirtingų gijų konfigūracijų kasimo rezultatai sutapo. Eksperimentas parodė, kad lygiagretus nepriklausomų blokų kandidatų kasimas gali sumažinti PoW vykdymo laiką.

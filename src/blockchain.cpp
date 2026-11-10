@@ -161,17 +161,21 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
         );
     }
 
-    vector<bool> found(candidateCount, false); // Sekame, kurie kandidatai rado tinkamą nonce
+    vector<int> found(candidateCount, 0); // Sekame, kurie kandidatai rado tinkamą nonce
     vector<uint64_t> totalAttempts(candidateCount, 0); // Sekame, kiek bandymų kiekvienas kandidatas atliko
     vector<double> miningTimes(candidateCount, 0.0); // Sekame, kiek laiko užtruko kiekvienas kandidatas
 
     int winnerIndex = -1;
 
+    // Pradedame matuoti bendra kasimo laika
+    auto miningStart = std::chrono::steady_clock::now();
+
     // Kandidatu kasimas
     for (int round = 0; round < 8; round++) // 8 raundai, kiekviename raunde didiname biudžetą
     {
         uint64_t budget = 1000ULL << round; // Biudžetas didėja eksponentiškai: 1000, 2000, 4000, ..., 128000
-
+        
+        #pragma omp parallel for schedule(static) // Naudojame OpenMP, kad kandidatai būtų kasami lygiagrečiai
         for (int i = 0; i < candidateCount; i++)
         {
             if (found[i])
@@ -183,12 +187,13 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
 
             auto start = std::chrono::steady_clock::now();
 
-            found[i] = candidates[i].mineBlockWithLimit(budget, attempts); // Bandome iškasti kandidatą su biudžetu
+            bool success = candidates[i].mineBlockWithLimit(budget, attempts); // Bandome iškasti kandidatą su biudžetu
 
             auto end = std::chrono::steady_clock::now();
 
             std::chrono::duration<double> duration = end - start;
 
+            found[i] = success ? 1 : 0; // Pažymime, ar kandidatas rado tinkamą nonce
             totalAttempts[i] += attempts;
             miningTimes[i] += duration.count();
         }
@@ -208,7 +213,9 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
             break;
         }
     }
-
+    auto miningEnd = std::chrono::steady_clock::now();
+    std::chrono::duration<double> totalMiningDuration = miningEnd - miningStart;
+    cout << "Bendra kasimo trukme: " << totalMiningDuration.count() << " s" << endl;
     // Kandidatu rezultatai
     for (int i = 0; i < candidateCount; i++)
     {

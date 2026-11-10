@@ -82,32 +82,53 @@ bool Blockchain::isValidTransaction(const Transaction& transaction, const unorde
 }
  vector<Transaction> Blockchain::selectTransactions(uint32_t seed) const 
  {
-    vector<Transaction> selectedTransactions;
+     vector<Transaction> selectedTransactions;
     selectedTransactions.reserve(100);
-    auto tempBalances = balances;
+
+    // Kiekvienas kandidatas turi savo laikina busena
+    unordered_map<string, int64_t> tempBalances = balances;
+
+    // Vietoje transakciju kopijavimo kuriame indeksus
+    vector<size_t> indices(transactionPool.size());
+
+    std::iota(indices.begin(), indices.end(), 0);
+
     std::mt19937 gen(seed);
-    vector<Transaction> shuffledTransactions = transactionPool;
-    std::shuffle(shuffledTransactions.begin(), shuffledTransactions.end(), gen);
-    std::unordered_set<string> selectedIDs;
-    for(const auto& transaction : shuffledTransactions)
+
+    std::shuffle(indices.begin(), indices.end(), gen);
+
+    unordered_set<string> selectedIDs;
+
+    for (size_t index : indices)
     {
-        if(selectedTransactions.size() >= 100)
-        {
-            break;
-        }
-        if(selectedIDs.find(transaction.getTransactionId()) != selectedIDs.end())
+        const Transaction& transaction = transactionPool[index];
+
+        // Ta pati transakcija negali kartotis kandidate
+        if (selectedIDs.find(transaction.getTransactionId())
+            != selectedIDs.end())
         {
             continue;
         }
-        selectedIDs.insert(transaction.getTransactionId());
-        if(isValidTransaction(transaction, tempBalances))
+
+        // Patikriname pagal laikina balansa
+        if (!isValidTransaction(transaction, tempBalances))
         {
-            selectedTransactions.push_back(transaction);
-            tempBalances[transaction.getSender()] -= transaction.getAmount();
-            tempBalances[transaction.getReceiver()] += transaction.getAmount();
+            continue;
+        }
+
+        // Atnaujiname tik laikina kandidato busena
+        tempBalances[transaction.getSender()] -= transaction.getAmount();
+        tempBalances[transaction.getReceiver()] += transaction.getAmount();
+
+        selectedTransactions.push_back(transaction);
+
+        selectedIDs.insert(transaction.getTransactionId());
+
+        if (selectedTransactions.size() == 100)
+        {
+            break;
         }
     }
-
 
     return selectedTransactions;
  }
@@ -455,4 +476,183 @@ bool Blockchain::validateBlock(const Block& block) const
 {
     unordered_map<string, int64_t> updatedBalances;
     return isValidBlock(block, updatedBalances);
+}
+void Blockchain::benchmarkTransactionSelection() const
+{
+    const int runs = 5;
+    const int rounds = 10;
+    const int candidates = 5;
+
+    // v0.2 transakciju atrankos metodas
+    auto selectV02 = [&](uint32_t seed)
+    {
+        vector<Transaction> shuffledTransactions = transactionPool;
+
+        unordered_map<string, int64_t> tempBalances = balances;
+        unordered_set<string> selectedIDs;
+
+        vector<Transaction> selectedTransactions;
+        selectedTransactions.reserve(100);
+
+        std::mt19937 gen(seed);
+
+        std::shuffle(
+            shuffledTransactions.begin(),
+            shuffledTransactions.end(),
+            gen
+        );
+
+        for (const auto& transaction : shuffledTransactions)
+        {
+            if (selectedIDs.find(transaction.getTransactionId())
+                != selectedIDs.end())
+            {
+                continue;
+            }
+
+            if (!isValidTransaction(transaction, tempBalances))
+            {
+                continue;
+            }
+
+            tempBalances[transaction.getSender()] -= transaction.getAmount();
+            tempBalances[transaction.getReceiver()] += transaction.getAmount();
+
+            selectedTransactions.push_back(transaction);
+            selectedIDs.insert(transaction.getTransactionId());
+
+            if (selectedTransactions.size() == 100)
+            {
+                break;
+            }
+        }
+
+        return selectedTransactions;
+    };
+
+    // Patikriname, ar abu metodai atrenka tas pacias transakcijas
+    for (int i = 0; i < rounds * candidates; i++)
+    {
+        uint32_t seed = 42 + i;
+
+        auto oldSelected = selectV02(seed);
+        auto newSelected = selectTransactions(seed);
+
+        if (oldSelected.size() != newSelected.size())
+        {
+            throw std::runtime_error("Skiriasi atrinktu transakciju kiekis!");
+        }
+
+        for (size_t j = 0; j < oldSelected.size(); j++)
+        {
+            if (oldSelected[j].getTransactionId() !=
+                newSelected[j].getTransactionId())
+            {
+                throw std::runtime_error("Skiriasi transakciju atrankos tvarka!");
+            }
+        }
+    }
+
+    // Ismatuojame pasirinkto metodo vykdymo laika
+    auto measure = [&](bool optimized)
+    {
+        size_t totalSelected = 0;
+
+        auto start = std::chrono::steady_clock::now();
+
+        for (int round = 0; round < rounds; round++)
+        {
+            for (int candidate = 0; candidate < candidates; candidate++)
+            {
+                uint32_t seed = 42 + round * candidates + candidate;
+
+                vector<Transaction> selected =
+                    optimized
+                    ? selectTransactions(seed)
+                    : selectV02(seed);
+
+                totalSelected += selected.size();
+            }
+        }
+
+        auto end = std::chrono::steady_clock::now();
+
+        std::chrono::duration<double> duration = end - start;
+
+        return std::make_pair(duration.count(), totalSelected);
+    };
+
+    vector<double> timesV02, timesV03;
+
+    cout << std::fixed << std::setprecision(6);
+
+    cout << "\n===== TRANSAKCIJU ATRANKOS NASUMO TESTAS =====\n";
+    cout << "Fondo dydis: " << transactionPool.size() << endl;
+    cout << "Atranku per matavima: " << rounds * candidates << endl;
+
+    for (int i = 0; i < runs; i++)
+    {
+        std::pair<double, size_t> oldResult, newResult;
+
+        // Keiciame testu vykdymo tvarka
+        if (i % 2 == 0)
+        {
+            oldResult = measure(false);
+            newResult = measure(true);
+        }
+        else
+        {
+            newResult = measure(true);
+            oldResult = measure(false);
+        }
+
+        if (oldResult.second != newResult.second)
+        {
+            throw std::runtime_error("Nesutampa atrinktu transakciju kiekiai!");
+        }
+
+        timesV02.push_back(oldResult.first);
+        timesV03.push_back(newResult.first);
+
+        cout << "Bandymas " << i + 1
+             << " | v0.2: " << oldResult.first << " s"
+             << " | v0.3: " << newResult.first << " s\n";
+    }
+
+    auto average = [](const vector<double>& times)
+    {
+        return std::accumulate(times.begin(), times.end(), 0.0)
+               / times.size();
+    };
+
+    auto standardDeviation = [](const vector<double>& times, double avg)
+    {
+        double sum = 0.0;
+
+        for (double time : times)
+        {
+            sum += (time - avg) * (time - avg);
+        }
+
+        return std::sqrt(sum / (times.size() - 1));
+    };
+
+    double avgV02 = average(timesV02);
+    double avgV03 = average(timesV03);
+
+    double improvement = (avgV02 - avgV03) / avgV02 * 100.0;
+
+    cout << "\n===== REZULTATAI =====\n";
+
+    cout << "v0.2 vidurkis: " << avgV02 << " s\n";
+    cout << "v0.3 vidurkis: " << avgV03 << " s\n";
+
+    cout << "v0.2 standartinis nuokrypis: "
+         << standardDeviation(timesV02, avgV02) << " s\n";
+
+    cout << "v0.3 standartinis nuokrypis: "
+         << standardDeviation(timesV03, avgV03) << " s\n";
+
+    cout << "Pagreitejimas: " << improvement << " %\n";
+    cout << "Atrankos rezultatu patikra: SEKMINGA\n";
 }

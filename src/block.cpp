@@ -98,26 +98,55 @@ void Block::mineBlock()
 }
 bool Block::mineBlockWithLimit(uint64_t budget, uint64_t& attempts)
 {
- attempts = 0;
- if( difficulty == 0 || difficulty > 64)
- {
-    throw std::invalid_argument("Neteisingas sunkumo lygis!");
- }
- string targetPrefix(difficulty, '0');
- while(attempts < budget)
- {
-    string blockHash = calculateBlockHash();
-    attempts++;
-    if(blockHash.substr(0, difficulty) == targetPrefix)
-    {
-        return true;
-    }
-    if(nonce == UINT64_MAX)
-    {
-        throw std::overflow_error("Nonce pasiekė maksimalia reikšmę!");
-    }
-    nonce++;
+  attempts = 0;
 
- }
- return false;
+    if (difficulty == 0 || difficulty > 64)
+    {
+        throw std::invalid_argument("Netinkamas difficulty!");
+    }
+
+    const string requiredPrefix(difficulty, '0');
+
+    // Nekintama bloko antrastes pradzia
+    const string prefix =
+        prev_hash + "|" +
+        std::to_string(timestamp) + "|" +
+        std::to_string(version) + "|" +
+        tx_root + "|";
+
+    // Nekintama bloko antrastes pabaiga
+    const string suffix = "|" + std::to_string(difficulty);
+
+    // Buferis, naudojamas visuose bandymuose
+    string data = prefix;
+    data.reserve(prefix.size() + 20 + suffix.size());
+
+    while (attempts < budget)
+    {
+        // Paliekame tik nekintama pradzia
+        data.resize(prefix.size());
+
+        // Pridedame dabartini nonce ir difficulty
+        data += std::to_string(nonce);
+        data += suffix;
+
+        auto hash = gautiHash(data);
+        string blockHash = hashIString(hash);
+
+        attempts++;
+
+        if (blockHash.compare(0, difficulty, requiredPrefix) == 0)
+        {
+            return true;
+        }
+
+        if (nonce == (std::numeric_limits<uint64_t>::max)())
+        {
+            throw std::overflow_error("Nonce riba pasiekta!");
+        }
+
+        nonce++;
+    }
+
+    return false;
 }

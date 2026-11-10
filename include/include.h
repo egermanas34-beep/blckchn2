@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <iomanip>
+#include <functional>
 #include <string>
 #include <fstream>
 #include <array>
@@ -16,12 +17,15 @@
 #include <unordered_map>
 #include <ctime>
 #include <cassert>
+#include <numeric>
 #include <windows.h>
 using std::string;
 using std::cin;
 using std::getline;
 using std::ifstream;
 using std::cout;
+using std::cin;
+using std::cerr;
 using std::endl;
 using std::ofstream;
 using std::vector;

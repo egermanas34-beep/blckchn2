@@ -18,6 +18,7 @@
 #include <ctime>
 #include <cassert>
 #include <numeric>
+#include <omp.h>
 #include <windows.h>
 using std::string;
 using std::cin;
